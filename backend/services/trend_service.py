@@ -59,6 +59,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database.repositories.emotion_repository import EmotionRepository
 from backend.models.schemas.insight import EmotionTrendPoint, InsightResponse, TrendAnalysisResponse
 from backend.services.trend_analyzer import analyze_emotion_trends
+from backend.services.support_generator import SupportGeneratorService
 
 
 class TrendService:
@@ -117,17 +118,22 @@ class TrendService:
         
         analysis_result = analyze_emotion_trends(logs)
         
-        # Generate a placeholder recommendation based on stress level
-        recommendation = "keep logging your emotions."
-        if analysis_result["stress_level"] == "high":
-            recommendation = "user may need immediate emotional support."
-        elif analysis_result["stress_level"] == "moderate" or "increasing sadness" in analysis_result["dominant_pattern"]:
-            recommendation = "user may need emotional support."
+        # Determine the user's most recent emotion for the LLM context
+        current_emotion = "neutral"
+        if logs:
+            current_emotion = logs[-1]["emotion_label"]
+            
+        trend_summary = analysis_result["dominant_pattern"]
+        
+        # Generate the recommendation using the Groq LLM (via SupportGeneratorService)
+        support_service = SupportGeneratorService()
+        recommendation = support_service.generate_support_message(current_emotion, trend_summary)
 
         return TrendAnalysisResponse(
             stress_level=analysis_result["stress_level"],
             pattern=analysis_result["dominant_pattern"],
             recommendation=recommendation
         )
+
 
 
