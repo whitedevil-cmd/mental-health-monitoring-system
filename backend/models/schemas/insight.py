@@ -60,3 +60,14 @@ class InsightResponse(BaseModel):
     trend: list[EmotionTrendPoint]
     supportive_message: str | None = None
 
+
+class TrendAnalysisResponse(BaseModel):
+    """
+    Detailed emotional trend analysis over a specified period (e.g., 7 days).
+    """
+
+    stress_level: str
+    pattern: str
+    recommendation: str
+
+

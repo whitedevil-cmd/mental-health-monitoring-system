@@ -58,7 +58,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.session import get_session
-from backend.models.schemas.insight import InsightResponse
+from backend.models.schemas.insight import InsightResponse, TrendAnalysisResponse
 from backend.services.response_service import ResponseService
 from backend.services.trend_service import TrendService
 
@@ -73,6 +73,21 @@ def get_trend_service() -> TrendService:
 def get_response_service() -> ResponseService:
     """Dependency wrapper for ResponseService."""
     return ResponseService()
+
+
+@router.get(
+    "/emotion-trend",
+    response_model=TrendAnalysisResponse,
+)
+async def get_emotion_trend(
+    user_id: str,
+    session: AsyncSession = Depends(get_session),
+    trend_service: TrendService = Depends(get_trend_service),
+) -> TrendAnalysisResponse:
+    """
+    Run the trend analysis module over the last 7 days of emotion logs.
+    """
+    return await trend_service.analyze_user_trend(session=session, user_id=user_id)
 
 
 @router.get(
@@ -95,4 +110,5 @@ async def get_user_insights(
     message = await response_service.generate_supportive_message(insight)
     insight.supportive_message = message
     return insight
+
 

@@ -62,6 +62,7 @@ ORM, which keeps business logic decoupled from persistence details.
 
 from collections.abc import Sequence
 from typing import Any
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,4 +105,18 @@ class EmotionRepository:
             select(EmotionReading).where(EmotionReading.user_id == user_id)
         )
         return result.scalars().all()
+
+    async def list_readings_for_user_in_last_days(self, user_id: str, days: int) -> Sequence[EmotionReading]:
+        """
+        Return emotion readings for a given user within the last `days` days.
+        """
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        result = await self._session.execute(
+            select(EmotionReading)
+            .where(EmotionReading.user_id == user_id)
+            .where(EmotionReading.created_at >= cutoff_date)
+            .order_by(EmotionReading.created_at.asc())
+        )
+        return result.scalars().all()
+
 
