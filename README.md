@@ -1,117 +1,128 @@
-## AI Mental Health Monitoring Backend (FastAPI)
+## AI Mental Health Monitoring System
 
-This project is a **backend skeleton** for an AI-powered mental health monitoring system.  
-It is designed to be **modular**, **production-oriented**, and easy to extend with real emotion models and LLMs later.
+A full-stack AI-powered mental health monitoring application with speech emotion recognition, trend analysis, and supportive response generation.
+
+### Architecture
+
+```
+React UI (Vite, port 8080)
+        ↓  Vite proxy
+FastAPI Backend (port 8000)
+        ↓
+┌───────────────────────────────┐
+│  /upload-audio → store WAV    │
+│  /detect-emotion → ML model   │
+│  /emotion-trend → analysis    │
+│  /api/v1/emotions/analyze     │
+│  /api/v1/insights/{user_id}   │
+└───────────────────────────────┘
+        ↓
+┌──────────────┐  ┌───────────────┐  ┌──────────────┐
+│ Emotion Model│  │ SQLite (async)│  │ Groq LLM     │
+│ (wav2vec2)   │  │ (backend.db)  │  │ (optional)   │
+└──────────────┘  └───────────────┘  └──────────────┘
+```
 
 ### Tech stack
 
-- **Language**: Python 3.10+
-- **Framework**: FastAPI
-- **ORM**: SQLAlchemy (async)
-- **Config**: Pydantic Settings (`.env` support)
-- **Server**: Uvicorn
+- **Frontend**: React, TypeScript, Vite, TailwindCSS, Recharts
+- **Backend**: Python 3.10+, FastAPI, SQLAlchemy (async), Uvicorn
+- **ML Model**: `ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition` (Hugging Face)
+- **LLM**: Groq API (optional, for supportive messages)
+- **Database**: SQLite via `aiosqlite`
 
-### Folder structure (backend)
+### Project structure
 
-- `backend/main.py` – FastAPI app factory, lifespan, router registration, DB table creation (for dev)
-- `backend/api/`
-  - `v1/routes_audio.py` – audio upload endpoint
-  - `v1/routes_emotions.py` – placeholder emotion analyze/store endpoint
-  - `v1/routes_insights.py` – trend + supportive message endpoint
-- `backend/services/`
-  - `audio_service.py` – handles audio uploads via storage backend
-  - `emotion_service.py` – placeholder emotion detection + persistence
-  - `trend_service.py` – builds simple emotion trends over time
-  - `response_service.py` – placeholder supportive response (future LLM integration)
-- `backend/models/`
-  - `domain/` – SQLAlchemy ORM models (`AudioRecording`, `EmotionReading`)
-  - `schemas/` – Pydantic API schemas (audio, emotions, insights)
-- `backend/database/`
-  - `config.py` – gets `DATABASE_URL` from settings
-  - `base.py` – SQLAlchemy `Base`
-  - `session.py` – async engine + `get_session` dependency
-  - `repositories/` – repository layer (e.g. `EmotionRepository`)
-- `backend/utils/`
-  - `config.py` – env-based settings via Pydantic
-  - `logging.py` – app-wide logging config
-  - `time.py` – small time utilities
-- `backend/audio_storage/`
-  - `filesystem_backend.py` – stores audio files under `backend/audio_storage/data`
+```
+project_root/
+├── backend/
+│   ├── main.py                 # FastAPI app factory + CORS + health
+│   ├── api/
+│   │   ├── emotion_routes.py   # POST /detect-emotion
+│   │   └── v1/
+│   │       ├── routes_audio.py     # POST /upload-audio, /api/v1/audio/upload
+│   │       ├── routes_emotions.py  # POST /api/v1/emotions/analyze
+│   │       └── routes_insights.py  # GET /api/v1/insights/emotion-trend, /{user_id}
+│   ├── services/
+│   │   ├── emotion_detector.py     # wav2vec2 ML pipeline (loads once)
+│   │   ├── emotion_service.py      # Emotion persistence
+│   │   ├── trend_analyzer.py       # 7-day trend analysis logic
+│   │   ├── trend_service.py        # Orchestrates trend + support generation
+│   │   ├── support_generator.py    # Groq LLM supportive messages
+│   │   └── response_service.py     # Static fallback messages
+│   ├── database/
+│   │   ├── session.py              # Async engine + session
+│   │   └── repositories/           # Data access layer
+│   └── models/
+│       ├── domain/                 # SQLAlchemy ORM models
+│       └── schemas/                # Pydantic API schemas
+├── frontend/
+│   ├── src/
+│   │   ├── hooks/
+│   │   │   ├── use-voice-recorder.ts   # Audio recording + upload
+│   │   │   └── use-dashboard-data.ts   # Dashboard API integration
+│   │   ├── components/                 # UI components
+│   │   └── pages/                      # Dashboard + Recording pages
+│   └── vite.config.ts              # Dev proxy → localhost:8000
+├── tests/                          # pytest suite
+│   ├── test_full_pipeline.py       # End-to-end integration test
+│   ├── test_trend_analyzer.py      # Trend analysis unit tests
+│   └── ...                         # Audio, emotion, insights tests
+├── requirements.txt
+└── README.md
+```
 
 ### Environment variables
 
-Environment variables are loaded via `backend.utils.config.Settings`.  
-You can define them in a `.env` file at the project root (`C:\Users\KIIT\Desktop\test`), for example:
+Create a `.env` file at the project root:
 
 ```env
 APP_NAME="AI Mental Health Monitoring API"
 ENVIRONMENT="development"
 DEBUG=true
-
 DATABASE_URL="sqlite+aiosqlite:///./backend.db"
-
-# Where uploaded audio is stored (relative or absolute path)
 AUDIO_STORAGE_DIR="backend/audio_storage/data"
 
-# Placeholders for future integrations
-EMOTION_MODEL_NAME=""
-LLM_PROVIDER=""
-LLM_API_KEY=""
+# Optional: Groq LLM for supportive messages
+LLM_API_KEY="gsk_your_key_here"
 ```
 
-### Installing dependencies
+### Running the system
 
-From the project root:
-
+**Backend** (from project root):
 ```bash
 pip install -r requirements.txt
-```
-
-### Running the backend
-
-From the project root:
-
-```bash
 uvicorn backend.main:app --reload
 ```
+Verify: `http://localhost:8000/health` → `{"status": "ok"}`
 
-The app will be available at `http://127.0.0.1:8000`.
+**Frontend** (from `frontend/`):
+```bash
+npm install
+npm run dev
+```
+Open: `http://localhost:8080`
 
-Open the interactive docs:
+### API endpoints
 
-- Swagger UI: `http://127.0.0.1:8000/docs`
-- ReDoc: `http://127.0.0.1:8000/redoc`
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Connectivity check |
+| `POST` | `/upload-audio` | Upload WAV audio file |
+| `POST` | `/detect-emotion` | Run speech emotion recognition |
+| `POST` | `/api/v1/emotions/analyze` | Store an emotion reading |
+| `GET` | `/api/v1/insights/emotion-trend?user_id=X` | Trend analysis (7 days) |
+| `GET` | `/api/v1/insights/{user_id}` | Full insights + supportive message |
+| `POST` | `/api/v1/audio/upload` | Upload with user_id (versioned) |
 
-### Key API endpoints (v1)
+### Running tests
 
-Base prefix for v1: `/api/v1`
+```bash
+pytest -v
+```
 
-- **Upload audio**
-  - **POST** `/api/v1/audio/upload`
-  - Multipart form with:
-    - `user_id` (form field)
-    - `file` (audio file)
-  - Returns basic metadata (`audio_id`, `user_id`, `stored_at`).
+### Performance
 
-- **Analyze/store emotion (placeholder)**
-  - **POST** `/api/v1/emotions/analyze`
-  - JSON body (`EmotionReadingCreate`):
-    - `user_id`: string
-    - `audio_id`: string or `null`
-    - `emotion_label`: string (e.g. "happy", "sad")
-    - `confidence`: float or `null`
-  - Currently just stores the payload; future version will call a real model.
-
-- **Get emotion insights + supportive message**
-  - **GET** `/api/v1/insights/{user_id}`
-  - Builds a basic trend from stored emotion readings and attaches a static, supportive message.
-
-### What is NOT implemented yet
-
-- Actual **emotion detection model** for speech.
-- Real **LLM integration** for supportive messages.
-- Authentication/authorization, rate limiting, or advanced security.
-- Production-grade migrations (the app currently auto-creates tables on startup for convenience).
-
-These can be added incrementally by plugging models and external APIs into the existing **services** and **repository** layers.
-
+- **Emotion model**: Loaded once via `@lru_cache` — no per-request overhead
+- **Database**: Async SQLAlchemy for non-blocking I/O
+- **CORS**: Configured for `localhost:8080` and `localhost:3000`
