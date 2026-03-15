@@ -26,6 +26,7 @@ backend/audio_storage/*.wav
 # Frontend build artifacts
 frontend/dist/
 frontend/node_modules/
+frontend/.vite/
 
 # OS/IDE
 .DS_Store
