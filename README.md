@@ -27,7 +27,7 @@ FastAPI Backend (port 8000)
 
 - **Frontend**: React, TypeScript, Vite, TailwindCSS, Recharts
 - **Backend**: Python 3.10+, FastAPI, SQLAlchemy (async), Uvicorn
-- **ML Model**: `ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition` (Hugging Face)
+- **ML Model**: `superb/wav2vec2-base-superb-er` (Hugging Face)
 - **LLM**: Groq API (optional, for supportive messages)
 - **Database**: SQLite via `aiosqlite`
 
@@ -82,6 +82,8 @@ ENVIRONMENT="development"
 DEBUG=true
 DATABASE_URL="sqlite+aiosqlite:///./backend.db"
 AUDIO_STORAGE_DIR="backend/audio_storage/data"
+LOG_LEVEL="info"
+MODEL_NAME="superb/wav2vec2-base-superb-er"
 
 # Optional: Groq LLM for supportive messages
 LLM_API_KEY="gsk_your_key_here"
@@ -120,6 +122,19 @@ Open: `http://localhost:8080`
 ```bash
 pytest -v
 ```
+
+### System Health Check
+
+You can automatically verify that all backend endpoints and models are functioning correctly by running the system health check script:
+
+```bash
+python scripts/system_check.py
+```
+It will verify:
+- Backend server is reachable
+- The `/upload-audio` endpoint accepts WAV files
+- The model correctly predicts emotion at `/detect-emotion`
+- The trend analysis API works
 
 ### Performance
 

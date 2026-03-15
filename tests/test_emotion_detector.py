@@ -34,14 +34,14 @@ def test_detect_emotion_returns_scores_and_caches_model(tmp_path: Path):
     p = tmp_path / "audio.wav"
     p.write_bytes(b"RIFFxxxxWAVE")  # content irrelevant due to mocks
 
-    fake_audio = np.ones(16000, dtype=np.float32) * 0.1
+    fake_audio = np.ones(33000, dtype=np.float32) * 0.1
 
     mock_classifier = MagicMock()
     mock_classifier.return_value = [
-        {"label": "happy", "score": 0.10},
+        {"label": "hap", "score": 0.10},
         {"label": "sad", "score": 0.65},
-        {"label": "angry", "score": 0.12},
-        {"label": "neutral", "score": 0.13},
+        {"label": "ang", "score": 0.12},
+        {"label": "neu", "score": 0.13},
     ]
 
     # Ensure we start with a clean cache for this test

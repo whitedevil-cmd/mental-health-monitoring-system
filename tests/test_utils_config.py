@@ -10,9 +10,10 @@ import os
 from backend.utils.config import Settings, get_settings
 
 
-def test_settings_defaults():
+def test_settings_defaults(monkeypatch):
     """Settings should expose sensible default values."""
-    settings = Settings()
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    settings = Settings(_env_file=None)
     assert settings.APP_NAME
     assert settings.ENVIRONMENT == "development"
     assert settings.DATABASE_URL.startswith("sqlite+aiosqlite:///")
@@ -23,12 +24,11 @@ def test_get_settings_cached_and_uses_env(monkeypatch):
     get_settings should respect environment variables on first load and
     return a cached instance on subsequent calls.
     """
+    get_settings.cache_clear()
     monkeypatch.setenv("APP_NAME", "Test App")
-    # Clear potential cache by creating a fresh Settings directly
-    settings = Settings()
+
+    settings = Settings(_env_file=None)
     assert settings.APP_NAME == "Test App"
 
-    # get_settings should also pick up env on first import in real usage
     cached = get_settings()
     assert cached.APP_NAME
-

@@ -33,10 +33,15 @@ def configure_logging(level: str = "INFO") -> None:
                 "console": {
                     "class": "logging.StreamHandler",
                     "formatter": "default",
+                },
+                "file": {
+                    "class": "logging.FileHandler",
+                    "filename": "backend/app.log",
+                    "formatter": "default",
                 }
             },
             "root": {
-                "handlers": ["console"],
+                "handlers": ["console", "file"],
                 "level": level.upper(),
             },
         }

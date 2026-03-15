@@ -1,0 +1,22 @@
+"""Domain model for persisted therapist conversation memory."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, Integer, String, Text
+
+from backend.database.base import Base
+
+
+class ConversationMemory(Base):
+    """Store recent user transcript and AI response pairs for memory."""
+
+    __tablename__ = "conversation_memories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(64), index=True, nullable=False)
+    transcript = Column(Text, nullable=True)
+    detected_emotion = Column(String(32), nullable=False)
+    ai_response = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

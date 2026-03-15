@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { audioBufferToWav } from '@/lib/audio-utils';
 
+const TRANSCRIPT_STORAGE_KEY = 'dashboard-latest-transcript';
+
 export type RecorderState = 'idle' | 'recording' | 'recorded' | 'uploading' | 'uploaded' | 'error';
 
 export function useVoiceRecorder() {
@@ -83,13 +85,57 @@ export function useVoiceRecorder() {
       const formData = new FormData();
       formData.append('file', wavBlob, 'recording.wav');
 
-      const res = await fetch('/upload-audio', {
+      // 1. Upload audio
+      const uploadRes = await fetch('/upload-audio', {
         method: 'POST',
         body: formData,
       });
 
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`);
+      const uploadData = await uploadRes.json();
+      const filePath = uploadData.file_path;
+
+      // 2. Detect emotion
+      const detectRes = await fetch('/detect-emotion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audio_path: filePath }),
+      });
+
+      if (!detectRes.ok) throw new Error(`Emotion detection failed: ${detectRes.status}`);
+      const detectData = await detectRes.json();
+      const dominantEmotion = detectData.dominant_emotion;
+      const transcript = typeof detectData.transcript === 'string' ? detectData.transcript.trim() : '';
+      const scores = detectData.scores ?? {};
+      const dominantConfidence =
+        typeof scores[dominantEmotion] === 'number'
+          ? scores[dominantEmotion]
+          : Math.max(...Object.values(scores).map(Number), 0);
+
+      if (transcript) {
+        window.localStorage.setItem(TRANSCRIPT_STORAGE_KEY, transcript);
+      }
+
+      // 3. Store in DB
+      const analyzeRes = await fetch('/api/v1/emotions/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: 'default-user',
+          audio_id: filePath,
+          emotion_label: dominantEmotion,
+          confidence: dominantConfidence,
+          transcript: transcript || undefined,
+        }),
+      });
+
+      if (!analyzeRes.ok) throw new Error(`Failed to save emotion: ${analyzeRes.status}`);
+
       setState('uploaded');
+
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('emotion-updated', { detail: { transcript } }));
+      }, 500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
       setState('error');
@@ -104,7 +150,6 @@ export function useVoiceRecorder() {
     setState('idle');
   }, [clearTimer]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       clearTimer();

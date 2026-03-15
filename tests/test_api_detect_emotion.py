@@ -1,13 +1,12 @@
 """
 API tests for the /detect-emotion endpoint.
-
-We mock the underlying emotion detector so tests remain fast and do not
-download Hugging Face models.
 """
 
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+
+from backend.services.emotion_detection_service import EmotionDetectionResult
 
 
 def test_detect_emotion_success(client: TestClient, monkeypatch, tmp_path: Path):
@@ -17,17 +16,22 @@ def test_detect_emotion_success(client: TestClient, monkeypatch, tmp_path: Path)
     fake_audio = storage_dir / "recording_123.wav"
     fake_audio.write_bytes(b"RIFFxxxxWAVE")
 
-    # Patch the symbol imported by the route module (not the original service module),
-    # since the endpoint does: `from backend.services.emotion_detector import detect_emotion`.
-    import backend.api.emotion_routes as routes_module
-
-    def fake_detect_emotion(path):  # noqa: ANN001
-        assert str(path).endswith("backend\\audio_storage\\recording_123.wav") or str(path).endswith(
-            "backend/audio_storage/recording_123.wav"
+    def fake_detect_from_audio_path(self, path):  # noqa: ANN001
+        assert str(path) == "audio_storage/recording_123.wav"
+        return EmotionDetectionResult(
+            dominant_emotion="sad",
+            scores={"sad": 0.64, "happy": 0.09, "angry": 0.11, "neutral": 0.16},
+            transcript="",
+            audio_scores={"sad": 0.64, "happy": 0.09, "angry": 0.11, "neutral": 0.16},
+            text_scores={},
+            combined_scores={"sad": 0.64, "happy": 0.09, "angry": 0.11, "neutral": 0.16},
         )
-        return {"sad": 0.64, "happy": 0.09, "angry": 0.11, "neutral": 0.16}
 
-    monkeypatch.setattr(routes_module, "detect_emotion", fake_detect_emotion, raising=True)
+    monkeypatch.setattr(
+        "backend.services.emotion_detection_service.EmotionDetectionService.detect_from_audio_path",
+        fake_detect_from_audio_path,
+        raising=True,
+    )
 
     resp = client.post("/detect-emotion", json={"audio_path": "audio_storage/recording_123.wav"})
     assert resp.status_code == 200
@@ -39,4 +43,3 @@ def test_detect_emotion_success(client: TestClient, monkeypatch, tmp_path: Path)
 def test_detect_emotion_rejects_path_traversal(client: TestClient):
     resp = client.post("/detect-emotion", json={"audio_path": "../secrets.wav"})
     assert resp.status_code == 400
-

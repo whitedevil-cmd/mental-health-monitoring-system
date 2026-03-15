@@ -1,25 +1,12 @@
-"""
-Emotion detection API routes.
+"""Emotion detection API routes."""
 
-This module exposes an endpoint that runs speech emotion recognition
-against a stored WAV file path and returns:
-- probability scores for all emotions
-- the dominant (highest-probability) emotion
+from __future__ import annotations
 
-It is intentionally thin and delegates ML work to
-`backend.services.emotion_detector`.
-"""
-
-import logging
-from pathlib import Path
-
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 
-from backend.services.emotion_detector import detect_emotion
+from backend.services.emotion_detection_service import EmotionDetectionService
 
-
-logger = logging.getLogger(__name__)
 router = APIRouter(tags=["emotion-detection"])
 
 
@@ -34,6 +21,15 @@ class DetectEmotionResponse(BaseModel):
 
     dominant_emotion: str
     scores: dict[str, float]
+    transcript: str
+    audio_scores: dict[str, float]
+    text_scores: dict[str, float]
+    combined_scores: dict[str, float]
+
+
+def get_emotion_detection_service() -> EmotionDetectionService:
+    """Dependency wrapper for emotion detection orchestration."""
+    return EmotionDetectionService()
 
 
 @router.post(
@@ -41,60 +37,17 @@ class DetectEmotionResponse(BaseModel):
     response_model=DetectEmotionResponse,
     status_code=status.HTTP_200_OK,
 )
-async def detect_emotion_endpoint(payload: DetectEmotionRequest) -> DetectEmotionResponse:
-    """
-    Run emotion detection on a stored WAV file and return scores + dominant label.
-
-    Expected input path format matches the upload endpoint output, e.g.:
-      "audio_storage/recording_123.wav"
-    which maps to:
-      backend/audio_storage/recording_123.wav
-    """
-    # Resolve the provided path against the backend directory
-    relative = Path(payload.audio_path)
-    resolved = (Path("backend") / relative).resolve()
-
-    # Basic safety check: keep reads within backend/audio_storage
-    allowed_root = (Path("backend") / "audio_storage").resolve()
-    if allowed_root not in resolved.parents and resolved != allowed_root:
-        logger.warning("Rejected audio_path outside allowed storage: %s", payload.audio_path)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid audio_path.",
-        )
-
-    try:
-        scores = detect_emotion(resolved)
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Audio file not found.",
-        )
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        )
-    except Exception as exc:  # pragma: no cover
-        logger.exception("Emotion detection failed: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Emotion detection failed.",
-        )
-
-    if not scores:
-        logger.warning("Emotion detector returned empty scores for %s", payload.audio_path)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Emotion detection returned no scores.",
-        )
-
-    dominant_emotion = max(scores.items(), key=lambda kv: kv[1])[0]
-    logger.info(
-        "Emotion detection completed for %s | dominant=%s",
-        payload.audio_path,
-        dominant_emotion,
+async def detect_emotion_endpoint(
+    payload: DetectEmotionRequest,
+    service: EmotionDetectionService = Depends(get_emotion_detection_service),
+) -> DetectEmotionResponse:
+    """Run emotion detection on a stored WAV file and return multimodal results."""
+    result = service.detect_from_audio_path(payload.audio_path)
+    return DetectEmotionResponse(
+        dominant_emotion=result.dominant_emotion,
+        scores=result.scores,
+        transcript=result.transcript,
+        audio_scores=result.audio_scores,
+        text_scores=result.text_scores,
+        combined_scores=result.combined_scores,
     )
-
-    return DetectEmotionResponse(dominant_emotion=dominant_emotion, scores=scores)
-

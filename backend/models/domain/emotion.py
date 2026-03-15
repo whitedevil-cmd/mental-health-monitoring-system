@@ -8,7 +8,7 @@ business rules.
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, Integer, String
+from sqlalchemy import Column, DateTime, Float, Integer, String, Text
 
 from backend.database.base import Base
 
@@ -28,6 +28,5 @@ class EmotionReading(Base):
     audio_id = Column(String(128), nullable=True)
     emotion_label = Column(String(32), nullable=False)
     confidence = Column(Float, nullable=True)
+    transcript = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-

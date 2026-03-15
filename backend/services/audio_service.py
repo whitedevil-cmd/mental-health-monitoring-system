@@ -1,78 +1,42 @@
-"""
-Service layer for audio-related operations.
+"""Service layer for audio-related operations."""
 
-This module defines high-level operations for handling user audio
-uploads. It coordinates between the storage backend and any future
-metadata persistence logic, but avoids direct framework or DB details.
-"""
+from __future__ import annotations
 
-from fastapi import UploadFile
-
-from backend.audio_storage.filesystem_backend import FileSystemAudioStorage
-from backend.models.schemas.audio import AudioUploadResponse
-
-
-class AudioService:
-    """
-    High-level audio use cases.
-
-    Methods here should remain framework-agnostic so they can be
-    reused from different API versions or even background workers.
-    """
-
-    def __init__(self) -> None:
-        self._storage = FileSystemAudioStorage()
-
-    async def handle_upload(self, user_id: str, file: UploadFile) -> AudioUploadResponse:
-        """
-        Process a user audio upload and return basic metadata.
-
-        The current implementation only stores the file and returns
-        a placeholder response. It does not trigger emotion detection.
-        """
-        audio_id, _path, stored_at = await self._storage.save(user_id, file)
-        return AudioUploadResponse(
-            audio_id=audio_id,
-            user_id=user_id,
-            stored_at=stored_at,
-        )
-
-"""
-Service layer for audio-related operations.
-
-This module defines high-level operations for handling user audio
-uploads. It coordinates between the storage backend and any future
-metadata persistence logic, but avoids direct framework or DB details.
-"""
+import logging
+from pathlib import Path
 
 from fastapi import UploadFile
 
 from backend.audio_storage.filesystem_backend import FileSystemAudioStorage
 from backend.models.schemas.audio import AudioUploadResponse
 
+logger = logging.getLogger(__name__)
+
 
 class AudioService:
-    """
-    High-level audio use cases.
+    """High-level audio use cases."""
 
-    Methods here should remain framework-agnostic so they can be
-    reused from different API versions or even background workers.
-    """
-
-    def __init__(self) -> None:
-        self._storage = FileSystemAudioStorage()
+    def __init__(self, storage: FileSystemAudioStorage | None = None) -> None:
+        self._storage = storage or FileSystemAudioStorage()
 
     async def handle_upload(self, user_id: str, file: UploadFile) -> AudioUploadResponse:
-        """
-        Process a user audio upload and return basic metadata.
-
-        The current implementation only stores the file and returns
-        a placeholder response. It does not trigger emotion detection.
-        """
+        """Store a user-scoped audio file and return metadata."""
         audio_id, _path, stored_at = await self._storage.save(user_id, file)
+        logger.info("Audio metadata prepared for user %s with audio_id %s", user_id, audio_id)
         return AudioUploadResponse(
             audio_id=audio_id,
             user_id=user_id,
             stored_at=stored_at,
         )
 
+    async def handle_wav_upload(self, file: UploadFile) -> dict[str, str]:
+        """Store a raw WAV upload and return the relative path expected by the frontend."""
+        relative_path = await self._storage.save_wav_upload(file)
+        return {
+            "status": "success",
+            "file_path": relative_path,
+        }
+
+    def resolve_uploaded_audio_path(self, relative_path: str) -> Path:
+        """Resolve a client-provided audio path to a validated file path."""
+        return self._storage.resolve_uploaded_audio_path(relative_path)

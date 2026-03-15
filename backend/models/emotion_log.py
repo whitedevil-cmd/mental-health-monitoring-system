@@ -1,5 +1,4 @@
-"""
-ORM model for stored emotion detection results.
+"""ORM model for stored emotion detection results.
 
 The `emotion_logs` table is intended to capture the output of the
 speech emotion recognition pipeline in a denormalized form for
@@ -8,7 +7,7 @@ analytics and auditing.
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, Integer, String
+from sqlalchemy import Column, DateTime, Float, Integer, String, Text
 
 from backend.database.base import Base
 
@@ -32,4 +31,4 @@ class EmotionLog(Base):
     happy_score = Column(Float, nullable=False, default=0.0)
     angry_score = Column(Float, nullable=False, default=0.0)
     neutral_score = Column(Float, nullable=False, default=0.0)
-
+    transcript = Column(Text, nullable=True)

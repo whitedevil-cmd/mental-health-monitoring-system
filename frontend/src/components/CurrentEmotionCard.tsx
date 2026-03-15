@@ -2,11 +2,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import type { EmotionType } from '@/hooks/use-dashboard-data';
 
 const EMOTION_CONFIG: Record<EmotionType, { emoji: string; label: string; hue: string }> = {
-  happiness: { emoji: '😊', label: 'Happy', hue: '45 80% 55%' },
-  sadness: { emoji: '😔', label: 'Sad', hue: '220 60% 55%' },
-  anger: { emoji: '😤', label: 'Angry', hue: '0 65% 55%' },
-  calm: { emoji: '😌', label: 'Calm', hue: '168 45% 40%' },
-  anxiety: { emoji: '😰', label: 'Anxious', hue: '30 70% 55%' },
+  happiness: { emoji: 'H', label: 'Happy', hue: '45 80% 55%' },
+  sadness: { emoji: 'S', label: 'Sad', hue: '220 60% 55%' },
+  anger: { emoji: 'A', label: 'Angry', hue: '0 65% 55%' },
+  calm: { emoji: 'C', label: 'Calm', hue: '168 45% 40%' },
+  neutral: { emoji: 'N', label: 'Neutral', hue: '200 20% 55%' },
+  uncertain: { emoji: '?', label: 'Uncertain', hue: '280 25% 55%' },
+  anxiety: { emoji: '!', label: 'Anxious', hue: '30 70% 55%' },
 };
 
 interface CurrentEmotionCardProps {

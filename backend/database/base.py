@@ -16,10 +16,9 @@ class Base(DeclarativeBase):
 # These imports are intentionally placed at the bottom to avoid
 # circular import issues.
 try:  # pragma: no cover - import side effects only
-    from backend.models.domain import audio, emotion  # noqa: F401
+    from backend.models.domain import audio, conversation, emotion  # noqa: F401
     from backend.models import emotion_log  # noqa: F401
 except Exception:
     # During certain tooling or partial import scenarios, models may not
     # be importable; this is non-fatal for most operations.
     pass
-

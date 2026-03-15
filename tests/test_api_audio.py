@@ -36,5 +36,5 @@ def test_upload_audio_wav_rejects_non_wav(client: TestClient):
 
     assert response.status_code == 400
     body = response.json()
-    assert body["detail"] == "Only WAV audio files are supported."
+    assert body["error"] == "Only WAV audio files are supported."
 

@@ -25,8 +25,11 @@ class Settings(BaseSettings):
     # Audio storage
     AUDIO_STORAGE_DIR: str = "backend/audio_storage/data"
 
-    # LLM / Emotion model placeholders
-    EMOTION_MODEL_NAME: str | None = None
+    # Logging
+    LOG_LEVEL: str = "info"
+
+    # LLM / Emotion model
+    MODEL_NAME: str = "superb/wav2vec2-base-superb-er"
     LLM_PROVIDER: str | None = None
     LLM_API_KEY: str | None = None
 
