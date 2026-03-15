@@ -217,6 +217,7 @@ tornado==6.4.2
 tqdm==4.67.1
 traitlets==5.14.3
 transformers==4.54.1
+silero-vad==5.1.2
 trio==0.31.0
 trio-websocket==0.12.2
 twilio==9.8.4

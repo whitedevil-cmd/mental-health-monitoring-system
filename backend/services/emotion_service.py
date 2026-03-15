@@ -39,6 +39,7 @@ class EmotionService:
 
         repo = EmotionRepository(session)
         try:
+            logger.info("Database write start for emotion reading user %s", payload.user_id)
             record = await repo.create_reading(data)
         except SQLAlchemyError as exc:
             logger.exception("Failed to save emotion reading for user %s: %s", payload.user_id, exc)

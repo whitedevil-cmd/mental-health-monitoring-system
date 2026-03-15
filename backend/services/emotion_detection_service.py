@@ -9,7 +9,7 @@ from pathlib import Path
 
 from backend.services.audio_service import AudioService
 from backend.services.emotion_detector import detect_emotion as default_detect_emotion
-from backend.services.emotion_pipeline_service import EmotionPipelineService
+from backend.services.audio_pipeline import _process_audio_file_sync
 from backend.utils.errors import (
     AudioProcessingError,
     EmotionDetectionError,
@@ -41,10 +41,9 @@ class EmotionDetectionService:
         *,
         audio_service: AudioService | None = None,
         detector: EmotionDetector = default_detect_emotion,
-        pipeline_service: EmotionPipelineService | None = None,
     ) -> None:
         self._audio_service = audio_service or AudioService()
-        self._pipeline_service = pipeline_service or EmotionPipelineService(audio_detector=detector)
+        self._audio_detector = detector
 
     def detect_from_audio_path(self, audio_path: str) -> EmotionDetectionResult:
         """Detect the dominant emotion from a previously stored audio file."""
@@ -53,7 +52,7 @@ class EmotionDetectionService:
             raise ResourceNotFoundError("Audio file not found.", details="The referenced audio file does not exist.")
 
         try:
-            result = self._pipeline_service.analyze_file(resolved)
+            result = _process_audio_file_sync(str(resolved), audio_detector=self._audio_detector)
         except FileNotFoundError as exc:
             logger.warning("Audio file missing during detection: %s", audio_path)
             raise ResourceNotFoundError("Audio file not found.", details="The referenced audio file does not exist.") from exc
@@ -66,8 +65,8 @@ class EmotionDetectionService:
             logger.exception("Emotion detection failed for %s: %s", audio_path, exc)
             raise EmotionDetectionError(details="Model inference error.") from exc
 
-        combined_scores = dict(result.combined_scores)
-        dominant_emotion = result.emotion
+        combined_scores = dict(result["combined_scores"])
+        dominant_emotion = str(result["emotion"])
         if not combined_scores:
             raise EmotionDetectionError("Emotion detection returned no scores.", details="Model inference error.")
 
@@ -75,8 +74,8 @@ class EmotionDetectionService:
         return EmotionDetectionResult(
             dominant_emotion=dominant_emotion,
             scores=combined_scores,
-            transcript=result.transcript,
-            audio_scores=dict(result.audio_scores),
-            text_scores=dict(result.text_scores),
+            transcript=str(result["transcript"]),
+            audio_scores=dict(result["audio_scores"]),
+            text_scores=dict(result["text_scores"]),
             combined_scores=combined_scores,
         )

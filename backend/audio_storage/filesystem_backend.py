@@ -90,9 +90,13 @@ class FileSystemAudioStorage:
     async def _write_file(self, file_path: Path, file: UploadFile) -> None:
         """Persist an uploaded file to disk."""
         try:
-            contents = await file.read()
             with file_path.open("wb") as handle:
-                handle.write(contents)
+                file.file.seek(0)
+                while True:
+                    chunk = await file.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    handle.write(chunk)
         except Exception as exc:  # pragma: no cover - safety net
             logger.exception("Failed writing audio file to %s: %s", file_path, exc)
             raise AudioUploadError(details="File write failed.") from exc

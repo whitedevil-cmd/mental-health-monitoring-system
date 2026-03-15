@@ -100,8 +100,8 @@ def _resample_if_needed(audio: np.ndarray, sr: int) -> tuple[np.ndarray, int]:
 # ---------------------------------------------------------
 # MODEL LOADING
 # ---------------------------------------------------------
-@lru_cache(maxsize=1)
-def _get_classifier() -> Any:
+@lru_cache()
+def get_model() -> Any:
     """
     Load Hugging Face audio classification pipeline once.
     """
@@ -114,6 +114,10 @@ def _get_classifier() -> Any:
         device=device,
         top_k=None,
     )
+
+
+# Backward-compatible alias for cached model loader (keeps cache_clear attribute).
+_get_classifier = get_model
 
 
 # ---------------------------------------------------------
@@ -176,7 +180,7 @@ def detect_emotion(audio_path: str | Path) -> dict[str, float]:
     # -----------------------------------------------------
     # Run emotion classifier
     # -----------------------------------------------------
-    classifier = _get_classifier()
+    classifier = get_model()
 
     outputs = classifier(
         {

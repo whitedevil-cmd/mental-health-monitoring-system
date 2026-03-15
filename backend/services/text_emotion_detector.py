@@ -40,14 +40,19 @@ class TextEmotionDetector:
         return scores
 
 
-@lru_cache(maxsize=1)
-def _get_classifier(model_id: str = MODEL_ID) -> Any:
+@lru_cache()
+def get_model(model_id: str = MODEL_ID) -> Any:
     """Load and cache the text-classification pipeline."""
     return pipeline(
         task="text-classification",
         model=model_id,
         top_k=None,
     )
+
+
+def _get_classifier(model_id: str = MODEL_ID) -> Any:
+    """Backward-compatible alias for cached model loader."""
+    return get_model(model_id)
 
 
 @lru_cache(maxsize=1)

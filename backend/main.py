@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from backend.api import emotion_routes
-from backend.api.v1 import routes_audio, routes_emotions, routes_insights
+from backend.api.v1 import routes_audio, routes_emotions, routes_insights, routes_voice_stream
 from backend.database.base import Base
 from backend.database.session import engine
 from backend.services.audio_service import AudioService
@@ -70,31 +70,31 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
 
     # Preload cached ML models once during startup to avoid cold-start latency.
     try:
-        from backend.services.emotion_detector import _get_classifier
+        from backend.services.emotion_detector import get_model as get_emotion_model
 
         logger.info("Preloading audio emotion model...")
-        _get_classifier()
+        get_emotion_model()
         logger.info("Audio emotion model ready.")
     except Exception as exc:  # pragma: no cover - environment-dependent model init
         logger.warning("Failed to initialize audio emotion model: %s", exc)
 
     try:
-        from backend.services.whisper_transcriber import get_transcriber
+        from backend.services.whisper_transcriber import get_model as get_whisper_model
 
-        logger.info("Preloading whisper transcriber...")
-        get_transcriber()
-        logger.info("Whisper transcriber ready.")
+        logger.info("Preloading whisper model...")
+        get_whisper_model()
+        logger.info("Whisper model ready.")
     except Exception as exc:  # pragma: no cover - environment-dependent model init
-        logger.warning("Failed to initialize whisper transcriber: %s", exc)
+        logger.warning("Failed to initialize whisper model: %s", exc)
 
     try:
-        from backend.services.text_emotion_detector import get_text_emotion_detector
+        from backend.services.text_emotion_detector import get_model as get_text_emotion_model
 
-        logger.info("Preloading text emotion detector...")
-        get_text_emotion_detector()
-        logger.info("Text emotion detector ready.")
+        logger.info("Preloading text emotion model...")
+        get_text_emotion_model()
+        logger.info("Text emotion model ready.")
     except Exception as exc:  # pragma: no cover - environment-dependent model init
-        logger.warning("Failed to initialize text emotion detector: %s", exc)
+        logger.warning("Failed to initialize text emotion model: %s", exc)
 
     yield
     logger.info("Application shutdown complete")
@@ -156,6 +156,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_audio.router, prefix="/api/v1")
     app.include_router(routes_emotions.router, prefix="/api/v1")
     app.include_router(routes_insights.router, prefix="/api/v1")
+    app.include_router(routes_voice_stream.router, prefix="/api/v1")
     app.include_router(emotion_routes.router)
 
     @app.get("/health")

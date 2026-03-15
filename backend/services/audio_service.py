@@ -21,8 +21,9 @@ class AudioService:
 
     async def handle_upload(self, user_id: str, file: UploadFile) -> AudioUploadResponse:
         """Store a user-scoped audio file and return metadata."""
+        logger.info("Audio upload start for user %s", user_id)
         audio_id, _path, stored_at = await self._storage.save(user_id, file)
-        logger.info("Audio metadata prepared for user %s with audio_id %s", user_id, audio_id)
+        logger.info("Audio upload completed for user %s with audio_id %s", user_id, audio_id)
         return AudioUploadResponse(
             audio_id=audio_id,
             user_id=user_id,
@@ -31,7 +32,9 @@ class AudioService:
 
     async def handle_wav_upload(self, file: UploadFile) -> dict[str, str]:
         """Store a raw WAV upload and return the relative path expected by the frontend."""
+        logger.info("WAV audio upload start")
         relative_path = await self._storage.save_wav_upload(file)
+        logger.info("WAV audio upload completed")
         return {
             "status": "success",
             "file_path": relative_path,
