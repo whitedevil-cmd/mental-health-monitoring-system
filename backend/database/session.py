@@ -20,15 +20,12 @@ if DATABASE_URL.startswith("postgresql+asyncpg://"):
     uses_pooler = "pooler" in lower_url or ":6543" in lower_url
     connect_args = {
         "server_settings": {"search_path": "public"},
+        # Disable asyncpg prepared statement caching to avoid PgBouncer issues.
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
     }
     if uses_pooler:
         # PgBouncer transaction mode + asyncpg: disable prepared statement caches.
-        connect_args.update(
-            {
-                "statement_cache_size": 0,
-                "prepared_statement_cache_size": 0,
-            }
-        )
         engine_kwargs["poolclass"] = NullPool
     engine_kwargs["connect_args"] = connect_args
 
