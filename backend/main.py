@@ -189,7 +189,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[
             "https://mental-health-monitoring-system.vercel.app",
-            "https://mental-health-monitoring-system_2.vercel.app",
+            "https://mental-health-monitoring-system2.vercel.app",
         ],
         allow_origin_regex=r"https://.*\.vercel\.app",
         allow_credentials=True,
