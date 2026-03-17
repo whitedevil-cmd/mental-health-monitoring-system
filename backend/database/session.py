@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from backend.database.config import get_database_url
 
@@ -13,10 +14,13 @@ DATABASE_URL = get_database_url()
 engine_kwargs = {
     "echo": False,
     "future": True,
+    "poolclass": NullPool,
 }
 if DATABASE_URL.startswith("postgresql+asyncpg://"):
-    # Ensure we never default to Supabase internal schemas.
+    # PgBouncer transaction mode + asyncpg: disable prepared statement caches.
     engine_kwargs["connect_args"] = {
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
         "server_settings": {"search_path": "public"},
     }
 
