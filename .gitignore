@@ -1,0 +1,75 @@
+# Environments and secrets
+.env
+backend/.env
+backend/.env.*
+.venv/
+venv/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyd
+
+# Test caches and outputs
+.pytest_cache/
+pytest_out.txt
+pytest_output.txt
+*.log
+
+# Local databases
+*.db
+
+# Audio artifacts
+backend/audio_storage/*.wav
+*.wav
+
+# Frontend build artifacts
+frontend/dist/
+frontend/node_modules/
+frontend/.vite/
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# pytest temp directories
+.pytest_tmp/
+_pytest_tmp/
+_pytest_basetemp/
+pytest_tmp/
+pytest_tmp_dir/
+
+# system files
+desktop.ini
+
+# ML models / large files
+*.pt
+*.pth
+*.bin
+*.ckpt
+*.onnx
+
+# cache folders
+.cache/
+
+# HuggingFace cache
+.huggingface/
+hf_cache/
+
+# Torch cache
+.torch/
+
+# temporary audio files
+*.mp3
+
+# render / railway build artifacts
+__pycache__/
+*.egg-info/
+
+# Python environments
+.venv/
+.venv2/
+venv/
+env/

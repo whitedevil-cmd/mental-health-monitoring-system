@@ -1,0 +1,74 @@
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? 'http://127.0.0.1:8001' : '');
+
+if (!API_BASE) {
+  throw new Error(
+    'Missing VITE_API_BASE_URL. Set it in your Vercel project env (and .env for local dev).',
+  );
+}
+
+export interface AnalyzeAudioResponse {
+  transcript: string;
+  emotion: string;
+  confidence: number;
+  probabilities: Record<string, number>;
+  response: string;
+}
+
+export interface GenerateSupportResponse {
+  message: string;
+}
+
+export interface HistoryResponseItem {
+  timestamp: string;
+  emotion: string;
+  confidence: number;
+  transcript: string | null;
+}
+
+class ApiClient {
+  private baseUrl: string;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl;
+  }
+
+  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string> || {}),
+    };
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const res = await fetch(`${this.baseUrl}${path}`, { ...options, headers });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`API Error: ${res.status} ${res.statusText} ${text}`);
+    }
+    return res.json();
+  }
+
+  async analyzeAudio(file: Blob): Promise<AnalyzeAudioResponse> {
+    const form = new FormData();
+    form.append('file', file, 'recording.wav');
+    return this.request<AnalyzeAudioResponse>('/analyze-audio', {
+      method: 'POST',
+      body: form,
+    });
+  }
+
+  async generateSupport(emotion: string, confidence: number): Promise<GenerateSupportResponse> {
+    return this.request<GenerateSupportResponse>('/generate-support', {
+      method: 'POST',
+      body: JSON.stringify({ emotion, confidence }),
+    });
+  }
+
+  async getHistory(): Promise<HistoryResponseItem[]> {
+    return this.request<HistoryResponseItem[]>('/history');
+  }
+}
+
+export const apiClient = new ApiClient(API_BASE);

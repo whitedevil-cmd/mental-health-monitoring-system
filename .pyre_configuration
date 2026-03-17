@@ -1,0 +1,5 @@
+{
+  "source_directories": ["."],
+  "search_path": ["C:/Python312/Lib/site-packages"],
+  "strict": false
+}
