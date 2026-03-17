@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import AsyncConnection
+from sqlalchemy.exc import SQLAlchemyError
 
 from backend.api import emotion_routes
 from backend.api.v1 import routes_audio, routes_emotions, routes_insights, routes_transcribe, routes_voice_stream
@@ -63,13 +64,17 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
     configure_logging(level=settings.LOG_LEVEL)
     logger.info("Starting %s in %s mode", settings.APP_NAME, settings.ENVIRONMENT)
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        if engine.url.get_backend_name() == "sqlite":
-            try:
-                await _ensure_sqlite_transcript_columns(conn)
-            except Exception as exc:  # pragma: no cover - startup schema patch safety
-                logger.warning("SQLite transcript schema update skipped: %s", exc)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            if engine.url.get_backend_name() == "sqlite":
+                try:
+                    await _ensure_sqlite_transcript_columns(conn)
+                except Exception as exc:  # pragma: no cover - startup schema patch safety
+                    logger.warning("SQLite transcript schema update skipped: %s", exc)
+    except SQLAlchemyError as exc:
+        logger.error("Database initialization failed: %s", exc)
+        logger.warning("Continuing startup without DB initialization.")
 
     from backend.services.audio_cleanup import cleanup_old_audio_files
 

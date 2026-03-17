@@ -10,7 +10,17 @@ from backend.database.config import get_database_url
 
 DATABASE_URL = get_database_url()
 
-engine = create_async_engine(DATABASE_URL, echo=False, future=True)
+engine_kwargs = {
+    "echo": False,
+    "future": True,
+}
+if DATABASE_URL.startswith("postgresql+asyncpg://"):
+    # Ensure we never default to Supabase internal schemas.
+    engine_kwargs["connect_args"] = {
+        "server_settings": {"search_path": "public"},
+    }
+
+engine = create_async_engine(DATABASE_URL, **engine_kwargs)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
