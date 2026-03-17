@@ -23,6 +23,7 @@ silero_vad==6.2.1
 webrtcvad-wheels
 
 SQLAlchemy==2.0.36
+asyncpg==0.29.0
 requests==2.32.3
 aiosqlite==0.20.0
 greenlet==3.0.3
