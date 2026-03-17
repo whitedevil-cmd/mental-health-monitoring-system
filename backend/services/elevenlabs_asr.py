@@ -41,6 +41,12 @@ class ElevenLabsASRConfig:
 
 def _get_config() -> ElevenLabsASRConfig:
     settings = get_settings()
+    logger.info(
+        "ElevenLabs config: api_key=%s stt_url_set=%s model_id=%s",
+        "set" if settings.ELEVENLABS_API_KEY else "missing",
+        "set" if settings.ELEVENLABS_STT_URL else "missing",
+        settings.ELEVENLABS_STT_MODEL_ID,
+    )
     return ElevenLabsASRConfig(
         api_key=settings.ELEVENLABS_API_KEY,
         stt_url=settings.ELEVENLABS_STT_URL,
