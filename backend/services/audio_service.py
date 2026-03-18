@@ -9,6 +9,7 @@ from fastapi import UploadFile
 
 from backend.audio_storage.filesystem_backend import FileSystemAudioStorage
 from backend.models.schemas.audio import AudioUploadResponse
+from backend.services.supabase_data_service import SupabaseDataService
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +19,24 @@ class AudioService:
 
     def __init__(self, storage: FileSystemAudioStorage | None = None) -> None:
         self._storage = storage or FileSystemAudioStorage()
+        self._data_service = SupabaseDataService()
 
     async def handle_upload(self, user_id: str, file: UploadFile) -> AudioUploadResponse:
         """Store a user-scoped audio file and return metadata."""
         logger.info("Audio upload start for user %s", user_id)
-        audio_id, _path, stored_at = await self._storage.save(user_id, file)
-        logger.info("Audio upload completed for user %s with audio_id %s", user_id, audio_id)
+        audio_id, file_path, stored_at = await self._storage.save(user_id, file)
+        record = await self._data_service.insert_row(
+            "audio_recordings",
+            {
+                "user_id": user_id,
+                "file_path": str(file_path),
+                "mime_type": file.content_type or "application/octet-stream",
+            },
+        )
+        stored_id = str(record.get("id", audio_id))
+        logger.info("Audio upload completed for user %s with audio_id %s", user_id, stored_id)
         return AudioUploadResponse(
-            audio_id=audio_id,
+            audio_id=stored_id,
             user_id=user_id,
             stored_at=stored_at,
         )

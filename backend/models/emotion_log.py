@@ -7,7 +7,8 @@ analytics and auditing.
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, Integer, String, Text
+from sqlalchemy import BigInteger, Column, DateTime, Float, String, Text, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 
 from backend.database.base import Base
 
@@ -23,7 +24,8 @@ class EmotionLog(Base):
 
     __tablename__ = "emotion_logs"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
+    user_id = Column(UUID(as_uuid=False), ForeignKey("auth.users.id"), index=True, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
     dominant_emotion = Column(String(32), nullable=False)
 

@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.session import get_session
 from backend.services.audio_service import AudioService
 from backend.services.emotion_detection_service import EmotionDetectionService
 from backend.services.emotion_storage import save_emotion_result
@@ -114,10 +112,10 @@ async def detect_emotion_endpoint(
 )
 async def analyze_audio_endpoint(
     file: UploadFile = File(..., description="WAV audio file"),
+    user_id: str = Form(..., description="Supabase auth user id"),
     audio_service: AudioService = Depends(get_audio_service),
     detection_service: EmotionDetectionService = Depends(get_emotion_detection_service),
     support_service: SupportGeneratorService = Depends(get_support_generator_service),
-    session: AsyncSession = Depends(get_session),
 ) -> AnalyzeAudioResponse:
     """Accept a WAV upload and return emotion probabilities."""
     logger.info("analyze-audio endpoint called with filename=%s content_type=%s", file.filename, file.content_type)
@@ -126,7 +124,7 @@ async def analyze_audio_endpoint(
     detection = detection_service.detect_from_audio_path(file_path)
     confidence = detection.scores.get(detection.dominant_emotion, 0.0)
     await save_emotion_result(
-        session=session,
+        user_id=user_id,
         dominant_emotion=detection.dominant_emotion,
         scores=detection.scores,
         transcript=detection.transcript,

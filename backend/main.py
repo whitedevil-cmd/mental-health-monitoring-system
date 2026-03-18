@@ -13,23 +13,19 @@ import os
 import time
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import AsyncConnection
-from sqlalchemy.exc import SQLAlchemyError
 
 from backend.api import emotion_routes
 from backend.api.v1 import routes_audio, routes_emotions, routes_insights, routes_transcribe, routes_voice_stream
-from backend.database.base import Base
-from backend.database.session import engine, get_session
 from backend.models.schemas.emotion import EmotionHistoryItem, EmotionInsightsSummary
 from backend.services.audio_service import AudioService
 from backend.services.dashboard_service import DashboardService
 from backend.services.emotion_detection_service import EmotionDetectionService
 from backend.services.emotion_storage import save_emotion_result
+from backend.services.supabase_data_service import SupabaseDataService
 from backend.services.support_generator import SupportGeneratorService
 from backend.utils.config import get_settings
 from backend.utils.errors import ServiceError
@@ -39,24 +35,6 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-
-async def _sqlite_table_columns(conn: AsyncConnection, table_name: str) -> set[str]:
-    """Return existing SQLite table column names for a table."""
-    result = await conn.exec_driver_sql(f"PRAGMA table_info({table_name})")
-    return {str(row[1]) for row in result.fetchall()}
-
-
-async def _ensure_sqlite_transcript_columns(conn: AsyncConnection) -> None:
-    """Safely add transcript columns for existing SQLite databases."""
-    table_names = ("emotion_readings", "emotion_logs")
-    for table_name in table_names:
-        columns = await _sqlite_table_columns(conn, table_name)
-        if "transcript" not in columns:
-            logger.info("Applying SQLite schema update: adding transcript column to %s", table_name)
-            await conn.exec_driver_sql(
-                f"ALTER TABLE {table_name} ADD COLUMN transcript TEXT"
-            )
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     """Lifespan context for startup and shutdown hooks."""
@@ -65,16 +43,13 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
     logger.info("Starting %s in %s mode", settings.APP_NAME, settings.ENVIRONMENT)
 
     try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-            if engine.url.get_backend_name() == "sqlite":
-                try:
-                    await _ensure_sqlite_transcript_columns(conn)
-                except Exception as exc:  # pragma: no cover - startup schema patch safety
-                    logger.warning("SQLite transcript schema update skipped: %s", exc)
-    except SQLAlchemyError as exc:
-        logger.error("Database initialization failed: %s", exc)
-        logger.warning("Continuing startup without DB initialization.")
+        db_check = await SupabaseDataService().verify_access("emotion_logs")
+        if db_check.get("status") == "ok":
+            logger.info("Supabase connectivity check passed for emotion_logs")
+        else:
+            logger.warning("Supabase connectivity check failed: %s", db_check)
+    except Exception as exc:
+        logger.warning("Supabase startup check failed: %s", exc)
 
     from backend.services.audio_cleanup import cleanup_old_audio_files
 
@@ -215,18 +190,14 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/insights", response_model=EmotionInsightsSummary)
-    async def insights_alias(
-        session: AsyncSession = Depends(get_session),
-    ) -> EmotionInsightsSummary:
+    async def insights_alias() -> EmotionInsightsSummary:
         """Alias for Lovable dashboard insights."""
-        return await DashboardService().get_insights(session=session)
+        return await DashboardService().get_insights()
 
     @app.get("/history", response_model=list[EmotionHistoryItem])
-    async def history_alias(
-        session: AsyncSession = Depends(get_session),
-    ) -> list[EmotionHistoryItem]:
+    async def history_alias() -> list[EmotionHistoryItem]:
         """Alias for Lovable history requests."""
-        return await DashboardService().get_history(session=session)
+        return await DashboardService().get_history()
 
     @app.get("/debug/routes")
     def debug_routes() -> dict[str, list[dict[str, object]]]:
@@ -245,7 +216,6 @@ def create_app() -> FastAPI:
             "app_name": settings.APP_NAME,
             "environment": settings.ENVIRONMENT,
             "debug": settings.DEBUG,
-            "database_url": settings.DATABASE_URL,
             "audio_storage_dir": settings.AUDIO_STORAGE_DIR,
             "log_level": settings.LOG_LEVEL,
             "model_name": settings.MODEL_NAME,
@@ -254,6 +224,8 @@ def create_app() -> FastAPI:
                 "API_KEY": bool(os.getenv("API_KEY")),
                 "LLM_API_KEY": bool(os.getenv("LLM_API_KEY")),
                 "ELEVENLABS_API_KEY": bool(os.getenv("ELEVENLABS_API_KEY")),
+                "SUPABASE_URL": bool(os.getenv("SUPABASE_URL")),
+                "SUPABASE_SERVICE_ROLE_KEY": bool(os.getenv("SUPABASE_SERVICE_ROLE_KEY")),
             },
         }
 
@@ -272,7 +244,7 @@ def create_app() -> FastAPI:
     )
     async def analyze_audio_alias(
         file: UploadFile = File(..., description="WAV audio file"),
-        session: AsyncSession = Depends(get_session),
+        user_id: str = Form(..., description="Supabase auth user id"),
     ) -> AnalyzeAudioResponse:
         """Accept a WAV upload and return emotion probabilities."""
         logger.info("analyze-audio endpoint called with filename=%s content_type=%s", file.filename, file.content_type)
@@ -280,7 +252,7 @@ def create_app() -> FastAPI:
         detection = EmotionDetectionService().detect_from_audio_path(upload_result["file_path"])
         confidence = detection.scores.get(detection.dominant_emotion, 0.0)
         await save_emotion_result(
-            session=session,
+            user_id=user_id,
             dominant_emotion=detection.dominant_emotion,
             scores=detection.scores,
             transcript=detection.transcript,

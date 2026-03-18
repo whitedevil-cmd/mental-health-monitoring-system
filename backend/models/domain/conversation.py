@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import BigInteger, Column, DateTime, String, Text, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 
 from backend.database.base import Base
 
@@ -14,8 +15,8 @@ class ConversationMemory(Base):
 
     __tablename__ = "conversation_memories"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String(64), index=True, nullable=False)
+    id = Column(BigInteger, primary_key=True, index=True)
+    user_id = Column(UUID(as_uuid=False), ForeignKey("auth.users.id"), index=True, nullable=False)
     transcript = Column(Text, nullable=True)
     detected_emotion = Column(String(32), nullable=False)
     ai_response = Column(Text, nullable=False)

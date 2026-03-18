@@ -3,22 +3,21 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Sequence
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.models.emotion_log import EmotionLog
 from backend.models.schemas.emotion import EmotionHistoryItem, EmotionInsightsSummary
+from backend.services.supabase_data_service import SupabaseDataService
 
 
 class DashboardService:
     """Read dashboard-friendly analytics from stored detector logs."""
 
-    async def get_insights(self, session: AsyncSession) -> EmotionInsightsSummary:
+    def __init__(self, data_service: SupabaseDataService | None = None) -> None:
+        self._data_service = data_service or SupabaseDataService()
+
+    async def get_insights(self) -> EmotionInsightsSummary:
         """Return high-level counts for the dashboard."""
-        logs = await self._list_logs(session)
-        distribution = Counter(log.dominant_emotion for log in logs)
+        logs = await self._list_logs()
+        distribution = Counter(str(log.get("dominant_emotion", "")) for log in logs if log.get("dominant_emotion"))
         top_emotion = distribution.most_common(1)[0][0] if distribution else None
         return EmotionInsightsSummary(
             sessions=len(logs),
@@ -26,33 +25,33 @@ class DashboardService:
             emotion_distribution=dict(distribution),
         )
 
-    async def get_history(self, session: AsyncSession) -> list[EmotionHistoryItem]:
+    async def get_history(self) -> list[EmotionHistoryItem]:
         """Return stored session history ordered from newest to oldest."""
-        logs = await self._list_logs(session)
+        logs = await self._list_logs()
         return [
             EmotionHistoryItem(
-                timestamp=log.timestamp,
-                emotion=log.dominant_emotion,
+                timestamp=log["timestamp"],
+                emotion=str(log.get("dominant_emotion", "")),
                 confidence=self._confidence_for_log(log),
-                transcript=log.transcript,
+                transcript=log.get("transcript"),
             )
             for log in logs
         ]
 
-    @staticmethod
-    async def _list_logs(session: AsyncSession) -> Sequence[EmotionLog]:
-        result = await session.execute(
-            select(EmotionLog).order_by(EmotionLog.timestamp.desc(), EmotionLog.id.desc())
+    async def _list_logs(self) -> list[dict]:
+        return await self._data_service.select_rows(
+            "emotion_logs",
+            order_by="timestamp",
+            desc=True,
         )
-        return result.scalars().all()
 
     @staticmethod
-    def _confidence_for_log(log: EmotionLog) -> float:
+    def _confidence_for_log(log: dict) -> float:
         score_map = {
-            "sad": log.sad_score,
-            "happy": log.happy_score,
-            "angry": log.angry_score,
-            "neutral": log.neutral_score,
+            "sad": log.get("sad_score", 0.0),
+            "happy": log.get("happy_score", 0.0),
+            "angry": log.get("angry_score", 0.0),
+            "neutral": log.get("neutral_score", 0.0),
         }
-        dominant_key = log.dominant_emotion.strip().lower()
+        dominant_key = str(log.get("dominant_emotion", "")).strip().lower()
         return float(score_map.get(dominant_key, 0.0))

@@ -16,8 +16,13 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"  # e.g. "development" | "staging" | "production"
     DEBUG: bool = True
 
-    # Database
+    # Legacy direct database URL (deprecated in favor of Supabase REST)
     DATABASE_URL: str = "sqlite+aiosqlite:///./backend.db"
+
+    # Supabase
+    SUPABASE_URL: str | None = None
+    SUPABASE_SERVICE_ROLE_KEY: str | None = None
+    SUPABASE_DEBUG_USER_ID: str | None = None
 
     # Security (placeholder; extend later)
     API_KEY: str | None = None

@@ -1,21 +1,15 @@
-"""Repository for persisted conversation memory."""
+"""Repository for persisted conversation memory via Supabase."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
-from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.models.domain.conversation import ConversationMemory
+from backend.services.supabase_data_service import SupabaseDataService
 
 
 class ConversationRepository:
     """Data access layer for therapist conversation memory."""
 
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
+    def __init__(self, data_service: SupabaseDataService | None = None) -> None:
+        self._data_service = data_service or SupabaseDataService()
 
     async def add_conversation(
         self,
@@ -24,33 +18,28 @@ class ConversationRepository:
         transcript: str | None,
         detected_emotion: str,
         ai_response: str,
-    ) -> ConversationMemory:
+    ) -> dict:
         """Persist a new conversation memory row."""
-        conversation = ConversationMemory(
-            user_id=user_id,
-            transcript=transcript,
-            detected_emotion=detected_emotion,
-            ai_response=ai_response,
+        return await self._data_service.insert_row(
+            "conversation_memories",
+            {
+                "user_id": user_id,
+                "transcript": transcript,
+                "detected_emotion": detected_emotion,
+                "ai_response": ai_response,
+            },
         )
-        self._session.add(conversation)
-        try:
-            await self._session.commit()
-            await self._session.refresh(conversation)
-        except SQLAlchemyError:
-            await self._session.rollback()
-            raise
-        return conversation
 
     async def get_recent_conversations(
         self,
         user_id: str,
         limit: int = 5,
-    ) -> Sequence[ConversationMemory]:
+    ) -> list[dict]:
         """Return the most recent conversation memories for a user."""
-        result = await self._session.execute(
-            select(ConversationMemory)
-            .where(ConversationMemory.user_id == user_id)
-            .order_by(ConversationMemory.created_at.desc())
-            .limit(limit)
+        return await self._data_service.select_rows(
+            "conversation_memories",
+            eq_filters={"user_id": user_id},
+            order_by="created_at",
+            desc=True,
+            limit=limit,
         )
-        return result.scalars().all()

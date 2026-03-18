@@ -7,7 +7,8 @@ and profile information in the future.
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Column, DateTime, String, Text, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 
 from backend.database.base import Base
 
@@ -17,7 +18,7 @@ class User(Base):
 
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    external_id = Column(String(64), unique=True, index=True, nullable=False)
+    id = Column(UUID(as_uuid=False), ForeignKey("auth.users.id"), primary_key=True, index=True)
+    external_id = Column(Text, unique=True, index=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

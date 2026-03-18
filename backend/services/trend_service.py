@@ -4,10 +4,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from backend.database.repositories.emotion_repository import EmotionRepository
-from backend.models.domain.emotion import EmotionReading
 from backend.models.schemas.insight import EmotionTrendPoint, InsightResponse, TrendAnalysisResponse
 from backend.services.trend_analyzer import analyze_emotion_trends
 
@@ -19,17 +16,17 @@ class TrendService:
 
     def __init__(
         self,
-        repository_factory: Callable[[AsyncSession], EmotionRepository] | None = None,
+        repository_factory: Callable[[], EmotionRepository] | None = None,
     ) -> None:
         self._repository_factory = repository_factory
 
-    def _repository(self, session: AsyncSession) -> EmotionRepository:
+    def _repository(self) -> EmotionRepository:
         repository_factory = self._repository_factory or EmotionRepository
-        return repository_factory(session)
+        return repository_factory()
 
-    async def analyze_user_trend(self, session: AsyncSession, user_id: str) -> TrendAnalysisResponse:
+    async def analyze_user_trend(self, user_id: str) -> TrendAnalysisResponse:
         """Return summarized emotional trend analysis for the last 7 days."""
-        repo = self._repository(session)
+        repo = self._repository()
         readings = await repo.list_readings_for_user_in_last_days(user_id=user_id, days=7)
         analysis = analyze_emotion_trends([self._reading_to_log(reading) for reading in readings])
 
@@ -44,12 +41,12 @@ class TrendService:
             recommendation=recommendation,
         )
 
-    async def build_insights(self, session: AsyncSession, user_id: str) -> InsightResponse:
+    async def build_insights(self, user_id: str) -> InsightResponse:
         """Return the stored trend points for a user, ready for supportive messaging."""
-        repo = self._repository(session)
+        repo = self._repository()
         readings = await repo.list_readings_for_user(user_id)
         trend = [self._build_trend_point(reading) for reading in readings]
-        latest_transcript = getattr(readings[-1], "transcript", None) if readings else None
+        latest_transcript = self._value(readings[-1], "transcript") if readings else None
 
         logger.info("Built %s insight points for user %s", len(trend), user_id)
         return InsightResponse(
@@ -60,22 +57,26 @@ class TrendService:
         )
 
     @staticmethod
-    def _build_trend_point(reading: EmotionReading | Any) -> EmotionTrendPoint:
-        timestamp = getattr(reading, "created_at", None) or getattr(reading, "timestamp", None)
-        emotion = getattr(reading, "emotion_label", None) or getattr(reading, "emotion", "neutral")
-        confidence = getattr(reading, "confidence", None)
+    def _value(reading: dict[str, Any], key: str, fallback: Any = None) -> Any:
+        return reading.get(key, fallback)
+
+    @classmethod
+    def _build_trend_point(cls, reading: dict[str, Any]) -> EmotionTrendPoint:
+        timestamp = cls._value(reading, "created_at") or cls._value(reading, "timestamp")
+        emotion = cls._value(reading, "emotion_label") or cls._value(reading, "emotion", "neutral")
+        confidence = cls._value(reading, "confidence")
         return EmotionTrendPoint(
             timestamp=timestamp,
             dominant_emotion=emotion,
             confidence=confidence,
         )
 
-    @staticmethod
-    def _reading_to_log(reading: EmotionReading | Any) -> dict[str, Any]:
+    @classmethod
+    def _reading_to_log(cls, reading: dict[str, Any]) -> dict[str, Any]:
         return {
-            "emotion_label": getattr(reading, "emotion_label", None) or getattr(reading, "emotion", ""),
-            "confidence": getattr(reading, "confidence", None),
-            "created_at": getattr(reading, "created_at", None) or getattr(reading, "timestamp", None),
+            "emotion_label": cls._value(reading, "emotion_label") or cls._value(reading, "emotion", ""),
+            "confidence": cls._value(reading, "confidence"),
+            "created_at": cls._value(reading, "created_at") or cls._value(reading, "timestamp"),
         }
 
     @staticmethod

@@ -5,9 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from backend.database.repositories.emotion_repository import EmotionRepository
 from backend.models.schemas.emotion import EmotionReadingCreate, EmotionReadingRead
 from backend.services.audio_service import AudioService
@@ -25,7 +22,6 @@ class EmotionService:
 
     async def analyze_and_store(
         self,
-        session: AsyncSession,
         payload: EmotionReadingCreate,
     ) -> EmotionReadingRead:
         """Persist a validated emotion reading via the repository layer."""
@@ -39,16 +35,13 @@ class EmotionService:
             except Exception as exc:  # pragma: no cover - storage/audio dependent
                 logger.warning("Could not derive transcript for %s: %s", data.get("audio_id"), exc)
 
-        repo = EmotionRepository(session)
+        repo = EmotionRepository()
         try:
             logger.info("Database write start for emotion reading user %s", payload.user_id)
             record = await repo.create_reading(data)
-        except SQLAlchemyError as exc:
+        except DatabaseOperationError as exc:
             logger.exception("Failed to save emotion reading for user %s: %s", payload.user_id, exc)
-            raise DatabaseOperationError(
-                "Failed to save emotion reading.",
-                details="Database write failed.",
-            ) from exc
+            raise
 
         logger.info(
             "Emotion reading stored for user %s with label %s",

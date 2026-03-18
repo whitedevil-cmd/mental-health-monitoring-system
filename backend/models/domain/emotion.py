@@ -8,7 +8,8 @@ business rules.
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, Integer, String, Text
+from sqlalchemy import BigInteger, Column, DateTime, Float, String, Text, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 
 from backend.database.base import Base
 
@@ -23,8 +24,8 @@ class EmotionReading(Base):
 
     __tablename__ = "emotion_readings"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String(64), index=True, nullable=False)
+    id = Column(BigInteger, primary_key=True, index=True)
+    user_id = Column(UUID(as_uuid=False), ForeignKey("auth.users.id"), index=True, nullable=False)
     audio_id = Column(String(128), nullable=True)
     emotion_label = Column(String(32), nullable=False)
     confidence = Column(Float, nullable=True)

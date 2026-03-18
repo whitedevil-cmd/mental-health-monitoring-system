@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database.session import get_session
 from backend.models.schemas.emotion import EmotionInsightsSummary
 from backend.models.schemas.insight import InsightResponse, TrendAnalysisResponse
 from backend.services.dashboard_service import DashboardService
@@ -35,11 +33,10 @@ def get_dashboard_service() -> DashboardService:
     response_model=EmotionInsightsSummary,
 )
 async def get_insights(
-    session: AsyncSession = Depends(get_session),
     dashboard_service: DashboardService = Depends(get_dashboard_service),
 ) -> EmotionInsightsSummary:
     """Return dashboard-ready analytics from stored emotion logs."""
-    return await dashboard_service.get_insights(session=session)
+    return await dashboard_service.get_insights()
 
 
 @router.get(
@@ -48,11 +45,10 @@ async def get_insights(
 )
 async def get_emotion_trend(
     user_id: str,
-    session: AsyncSession = Depends(get_session),
     trend_service: TrendService = Depends(get_trend_service),
 ) -> TrendAnalysisResponse:
     """Run the trend analysis module over the last 7 days of emotion logs."""
-    return await trend_service.analyze_user_trend(session=session, user_id=user_id)
+    return await trend_service.analyze_user_trend(user_id=user_id)
 
 
 @router.get(
@@ -61,8 +57,7 @@ async def get_emotion_trend(
 )
 async def get_user_insights(
     user_id: str,
-    session: AsyncSession = Depends(get_session),
     insight_service: InsightService = Depends(get_insight_service),
 ) -> InsightResponse:
     """Return emotion trends and supportive text for a user."""
-    return await insight_service.get_user_insights(session=session, user_id=user_id)
+    return await insight_service.get_user_insights(user_id=user_id)

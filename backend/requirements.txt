@@ -29,3 +29,4 @@ aiosqlite==0.20.0
 greenlet==3.0.3
 python-multipart==0.0.9
 networkx==3.4.2
+supabase
