@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from backend.database.repositories.emotion_repository import EmotionRepository
+from backend.storage.repositories.emotion_repository import EmotionRepository
 from backend.models.schemas.emotion import EmotionReadingCreate, EmotionReadingRead
 from backend.services.audio_service import AudioService
 from backend.services.elevenlabs_asr import transcribe_audio_elevenlabs
@@ -23,6 +23,7 @@ class EmotionService:
     async def analyze_and_store(
         self,
         payload: EmotionReadingCreate,
+        session: object | None = None,  # noqa: ARG002
     ) -> EmotionReadingRead:
         """Persist a validated emotion reading via the repository layer."""
         data = payload.model_dump()

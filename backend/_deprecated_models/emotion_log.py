@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, Column, DateTime, Float, String, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 
-from backend.database.base import Base
+from backend._deprecated_database.database.base import Base
 
 
 class EmotionLog(Base):
@@ -34,3 +34,4 @@ class EmotionLog(Base):
     angry_score = Column(Float, nullable=False, default=0.0)
     neutral_score = Column(Float, nullable=False, default=0.0)
     transcript = Column(Text, nullable=True)
+

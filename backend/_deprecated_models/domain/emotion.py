@@ -11,7 +11,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, Column, DateTime, Float, String, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 
-from backend.database.base import Base
+from backend._deprecated_database.database.base import Base
 
 
 class EmotionReading(Base):
@@ -31,3 +31,4 @@ class EmotionReading(Base):
     confidence = Column(Float, nullable=True)
     transcript = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+

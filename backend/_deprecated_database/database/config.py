@@ -33,3 +33,4 @@ def get_database_url() -> str:
     """
     return _normalize_database_url(get_settings().DATABASE_URL)
 
+

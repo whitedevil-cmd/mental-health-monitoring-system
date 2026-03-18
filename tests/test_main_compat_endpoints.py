@@ -124,5 +124,5 @@ def test_analyze_audio_stores_result_and_returns_payload(client: TestClient, mon
         "dominant_emotion": "neutral",
         "scores": {"neutral": 0.83, "sad": 0.1, "happy": 0.04, "angry": 0.03},
         "transcript": "Test transcript",
-        "session_bound": True,
+        "session_bound": False,
     }

@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, Column, DateTime, String, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 
-from backend.database.base import Base
+from backend._deprecated_database.database.base import Base
 
 
 class ConversationMemory(Base):
@@ -21,3 +21,4 @@ class ConversationMemory(Base):
     detected_emotion = Column(String(32), nullable=False)
     ai_response = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+

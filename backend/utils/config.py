@@ -22,7 +22,9 @@ class Settings(BaseSettings):
     # Supabase
     SUPABASE_URL: str | None = None
     SUPABASE_SERVICE_ROLE_KEY: str | None = None
+    SUPABASE_KEY: str | None = None
     SUPABASE_DEBUG_USER_ID: str | None = None
+    DATA_BACKEND: str = "supabase"
 
     # Security (placeholder; extend later)
     API_KEY: str | None = None

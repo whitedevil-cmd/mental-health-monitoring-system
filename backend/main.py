@@ -25,7 +25,7 @@ from backend.services.audio_service import AudioService
 from backend.services.dashboard_service import DashboardService
 from backend.services.emotion_detection_service import EmotionDetectionService
 from backend.services.emotion_storage import save_emotion_result
-from backend.services.supabase_data_service import SupabaseDataService
+from backend.storage.data_backend import StorageBackend
 from backend.services.support_generator import SupportGeneratorService
 from backend.utils.config import get_settings
 from backend.utils.errors import ServiceError
@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
     logger.info("Starting %s in %s mode", settings.APP_NAME, settings.ENVIRONMENT)
 
     try:
-        db_check = await SupabaseDataService().verify_access("emotion_logs")
+        db_check = await StorageBackend().verify_access("emotion_logs")
         if db_check.get("status") == "ok":
             logger.info("Supabase connectivity check passed for emotion_logs")
         else:
@@ -168,6 +168,8 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
+            "http://localhost:8080",
+            "http://127.0.0.1:8080",
             "https://mental-health-monitoring-system.vercel.app",
             "https://mental-health-monitoring-system2.vercel.app",
         ],
@@ -190,14 +192,18 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/insights", response_model=EmotionInsightsSummary)
-    async def insights_alias() -> EmotionInsightsSummary:
+    async def insights_alias(user_id: str | None = None) -> EmotionInsightsSummary:
         """Alias for Lovable dashboard insights."""
-        return await DashboardService().get_insights()
+        if user_id:
+            return await DashboardService().get_insights(session=None, user_id=user_id)
+        return await DashboardService().get_insights(session=None)
 
     @app.get("/history", response_model=list[EmotionHistoryItem])
-    async def history_alias() -> list[EmotionHistoryItem]:
+    async def history_alias(user_id: str | None = None) -> list[EmotionHistoryItem]:
         """Alias for Lovable history requests."""
-        return await DashboardService().get_history()
+        if user_id:
+            return await DashboardService().get_history(session=None, user_id=user_id)
+        return await DashboardService().get_history(session=None)
 
     @app.get("/debug/routes")
     def debug_routes() -> dict[str, list[dict[str, object]]]:
@@ -244,19 +250,28 @@ def create_app() -> FastAPI:
     )
     async def analyze_audio_alias(
         file: UploadFile = File(..., description="WAV audio file"),
-        user_id: str = Form(..., description="Supabase auth user id"),
+        user_id: str | None = Form(default=None, description="Supabase auth user id"),
     ) -> AnalyzeAudioResponse:
         """Accept a WAV upload and return emotion probabilities."""
         logger.info("analyze-audio endpoint called with filename=%s content_type=%s", file.filename, file.content_type)
         upload_result = await AudioService().handle_wav_upload(file=file)
         detection = EmotionDetectionService().detect_from_audio_path(upload_result["file_path"])
         confidence = detection.scores.get(detection.dominant_emotion, 0.0)
-        await save_emotion_result(
-            user_id=user_id,
-            dominant_emotion=detection.dominant_emotion,
-            scores=detection.scores,
-            transcript=detection.transcript,
-        )
+        if user_id:
+            await save_emotion_result(
+                session=None,
+                user_id=user_id,
+                dominant_emotion=detection.dominant_emotion,
+                scores=detection.scores,
+                transcript=detection.transcript,
+            )
+        else:
+            await save_emotion_result(
+                session=None,
+                dominant_emotion=detection.dominant_emotion,
+                scores=detection.scores,
+                transcript=detection.transcript,
+            )
         trend_summary = _trend_summary_from_confidence(detection.dominant_emotion, confidence)
         response_message = SupportGeneratorService().generate_support_message(
             current_emotion=detection.dominant_emotion,

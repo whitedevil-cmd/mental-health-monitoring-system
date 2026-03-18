@@ -1,15 +1,15 @@
-"""Repository for persisted conversation memory via Supabase."""
+"""Repository for persisted conversation memory."""
 
 from __future__ import annotations
 
-from backend.services.supabase_data_service import SupabaseDataService
+from backend.storage.data_backend import StorageBackend
 
 
 class ConversationRepository:
     """Data access layer for therapist conversation memory."""
 
-    def __init__(self, data_service: SupabaseDataService | None = None) -> None:
-        self._data_service = data_service or SupabaseDataService()
+    def __init__(self, data_backend: StorageBackend | None = None) -> None:
+        self._data_backend = data_backend or StorageBackend()
 
     async def add_conversation(
         self,
@@ -19,8 +19,7 @@ class ConversationRepository:
         detected_emotion: str,
         ai_response: str,
     ) -> dict:
-        """Persist a new conversation memory row."""
-        return await self._data_service.insert_row(
+        return await self._data_backend.insert_row(
             "conversation_memories",
             {
                 "user_id": user_id,
@@ -30,13 +29,8 @@ class ConversationRepository:
             },
         )
 
-    async def get_recent_conversations(
-        self,
-        user_id: str,
-        limit: int = 5,
-    ) -> list[dict]:
-        """Return the most recent conversation memories for a user."""
-        return await self._data_service.select_rows(
+    async def get_recent_conversations(self, user_id: str, limit: int = 5) -> list[dict]:
+        return await self._data_backend.select_rows(
             "conversation_memories",
             eq_filters={"user_id": user_id},
             order_by="created_at",

@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy import BigInteger, Column, DateTime, String, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 
-from backend.database.base import Base
+from backend._deprecated_database.database.base import Base
 
 
 class AudioRecording(Base):
@@ -23,5 +23,6 @@ class AudioRecording(Base):
     file_path = Column(String(512), nullable=False)
     mime_type = Column(String(64), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
 
 

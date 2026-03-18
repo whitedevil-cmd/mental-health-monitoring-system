@@ -50,9 +50,12 @@ class ApiClient {
     return res.json();
   }
 
-  async analyzeAudio(file: Blob): Promise<AnalyzeAudioResponse> {
+  async analyzeAudio(file: Blob, userId?: string): Promise<AnalyzeAudioResponse> {
     const form = new FormData();
     form.append('file', file, 'recording.wav');
+    if (userId) {
+      form.append('user_id', userId);
+    }
     return this.request<AnalyzeAudioResponse>('/analyze-audio', {
       method: 'POST',
       body: form,
@@ -66,8 +69,9 @@ class ApiClient {
     });
   }
 
-  async getHistory(): Promise<HistoryResponseItem[]> {
-    return this.request<HistoryResponseItem[]>('/history');
+  async getHistory(userId?: string): Promise<HistoryResponseItem[]> {
+    const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+    return this.request<HistoryResponseItem[]>(`/history${query}`);
   }
 }
 

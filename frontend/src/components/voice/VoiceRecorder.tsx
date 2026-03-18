@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Square, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/apiClient';
+import { useAuth } from '@/contexts/AuthContext';
 import { EmotionScore, EMOTION_COLORS } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 
@@ -69,6 +70,7 @@ interface VoiceRecorderProps {
 }
 
 const VoiceRecorder = ({ onResult }: VoiceRecorderProps) => {
+  const { user } = useAuth();
   const [status, setStatus] = useState<'idle' | 'recording' | 'processing'>('idle');
   const [duration, setDuration] = useState(0);
   const [analyzerData, setAnalyzerData] = useState<number[]>(new Array(32).fill(0));
@@ -121,7 +123,7 @@ const VoiceRecorder = ({ onResult }: VoiceRecorderProps) => {
         try {
           const wavBlob = await convertToWavBlob(blob);
           // Step 1: Analyze audio emotion
-          const analysis = await apiClient.analyzeAudio(wavBlob);
+          const analysis = await apiClient.analyzeAudio(wavBlob, user?.id ?? undefined);
 
           // Convert probabilities to EmotionScore[]
           const emotions: EmotionScore[] = Object.entries(analysis.probabilities).map(

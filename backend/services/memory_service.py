@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from backend.database.repositories.conversation_repository import ConversationRepository
-from backend.database.repositories.emotion_repository import EmotionRepository
+from backend.storage.repositories.conversation_repository import ConversationRepository
+from backend.storage.repositories.emotion_repository import EmotionRepository
 from backend.utils.errors import DatabaseOperationError
 
 logger = logging.getLogger(__name__)

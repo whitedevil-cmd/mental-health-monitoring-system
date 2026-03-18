@@ -4,7 +4,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from backend.database.repositories.emotion_repository import EmotionRepository
+from backend.storage.repositories.emotion_repository import EmotionRepository
 from backend.models.schemas.insight import EmotionTrendPoint, InsightResponse, TrendAnalysisResponse
 from backend.services.trend_analyzer import analyze_emotion_trends
 
@@ -24,7 +24,7 @@ class TrendService:
         repository_factory = self._repository_factory or EmotionRepository
         return repository_factory()
 
-    async def analyze_user_trend(self, user_id: str) -> TrendAnalysisResponse:
+    async def analyze_user_trend(self, user_id: str, session: object | None = None) -> TrendAnalysisResponse:  # noqa: ARG002
         """Return summarized emotional trend analysis for the last 7 days."""
         repo = self._repository()
         readings = await repo.list_readings_for_user_in_last_days(user_id=user_id, days=7)
@@ -41,7 +41,7 @@ class TrendService:
             recommendation=recommendation,
         )
 
-    async def build_insights(self, user_id: str) -> InsightResponse:
+    async def build_insights(self, user_id: str, session: object | None = None) -> InsightResponse:  # noqa: ARG002
         """Return the stored trend points for a user, ready for supportive messaging."""
         repo = self._repository()
         readings = await repo.list_readings_for_user(user_id)
@@ -57,8 +57,10 @@ class TrendService:
         )
 
     @staticmethod
-    def _value(reading: dict[str, Any], key: str, fallback: Any = None) -> Any:
-        return reading.get(key, fallback)
+    def _value(reading: Any, key: str, fallback: Any = None) -> Any:
+        if isinstance(reading, dict):
+            return reading.get(key, fallback)
+        return getattr(reading, key, fallback)
 
     @classmethod
     def _build_trend_point(cls, reading: dict[str, Any]) -> EmotionTrendPoint:

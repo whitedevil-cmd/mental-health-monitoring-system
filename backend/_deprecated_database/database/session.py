@@ -17,3 +17,4 @@ async def get_session() -> AsyncGenerator[None, None]:
         details="Use the Supabase client service layer instead of SQLAlchemy sessions.",
     )
     yield None
+

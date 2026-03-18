@@ -6,7 +6,7 @@ results into InsightResponse objects, using a mocked repository to keep
 the module independent from the real database.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -22,7 +22,7 @@ async def test_trend_service_builds_insight_from_readings():
     # Prepare fake reading objects with the attributes used by TrendService
     fake_readings = [
         SimpleNamespace(
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             emotion_label="happy",
             confidence=0.9,
         )

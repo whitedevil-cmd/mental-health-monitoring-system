@@ -22,11 +22,5 @@ soundfile==0.13.1
 silero_vad==6.2.1
 webrtcvad-wheels
 
-SQLAlchemy==2.0.36
-asyncpg==0.29.0
-requests==2.32.3
-aiosqlite==0.20.0
-greenlet==3.0.3
 python-multipart==0.0.9
-networkx==3.4.2
-supabase
+supabase==2.28.2

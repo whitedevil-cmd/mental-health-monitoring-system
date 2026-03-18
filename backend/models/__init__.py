@@ -1,9 +1,7 @@
-"""
-Models package root.
+"""Application data models package.
 
-This package groups ORM domain models and Pydantic schemas used across
-the application.
+The active runtime uses Pydantic request/response schemas from
+`backend.models.schemas`. Deprecated ORM models were moved to
+`backend._deprecated_models`.
 """
-
-"""Models package, containing ORM domain models and Pydantic schemas."""
 

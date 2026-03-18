@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AppLayout from '@/components/layout/AppLayout';
 import { MessageSquare, ChevronRight, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 import { EMOTION_COLORS } from '@/types';
 import { apiClient, HistoryResponseItem } from '@/lib/apiClient';
 
@@ -26,6 +27,7 @@ const mapHistoryItem = (entry: HistoryResponseItem): HistoryConversation => ({
 });
 
 const History = () => {
+  const { user } = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryConversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +40,7 @@ const History = () => {
       try {
         setIsLoading(true);
         setError(null);
-        const entries = await apiClient.getHistory();
+        const entries = await apiClient.getHistory(user?.id ?? undefined);
         if (!mounted) return;
         setHistory(entries.map(mapHistoryItem));
       } catch (err) {
@@ -57,7 +59,7 @@ const History = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user?.id]);
 
   const activeConvo = history.find((c) => c.id === selected) || null;
 

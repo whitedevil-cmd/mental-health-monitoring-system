@@ -112,7 +112,7 @@ async def detect_emotion_endpoint(
 )
 async def analyze_audio_endpoint(
     file: UploadFile = File(..., description="WAV audio file"),
-    user_id: str = Form(..., description="Supabase auth user id"),
+    user_id: str | None = Form(default=None, description="Supabase auth user id"),
     audio_service: AudioService = Depends(get_audio_service),
     detection_service: EmotionDetectionService = Depends(get_emotion_detection_service),
     support_service: SupportGeneratorService = Depends(get_support_generator_service),
@@ -123,12 +123,21 @@ async def analyze_audio_endpoint(
     file_path = upload_result["file_path"]
     detection = detection_service.detect_from_audio_path(file_path)
     confidence = detection.scores.get(detection.dominant_emotion, 0.0)
-    await save_emotion_result(
-        user_id=user_id,
-        dominant_emotion=detection.dominant_emotion,
-        scores=detection.scores,
-        transcript=detection.transcript,
-    )
+    if user_id:
+        await save_emotion_result(
+            session=None,
+            user_id=user_id,
+            dominant_emotion=detection.dominant_emotion,
+            scores=detection.scores,
+            transcript=detection.transcript,
+        )
+    else:
+        await save_emotion_result(
+            session=None,
+            dominant_emotion=detection.dominant_emotion,
+            scores=detection.scores,
+            transcript=detection.transcript,
+        )
     trend_summary = _trend_summary_from_confidence(detection.dominant_emotion, confidence)
     response_message = support_service.generate_support_message(
         current_emotion=detection.dominant_emotion,

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from backend.services.supabase_data_service import SupabaseDataService
+from backend.storage.data_backend import StorageBackend
 from backend.utils.errors import DatabaseOperationError
 
-_service = SupabaseDataService()
+_service = StorageBackend()
 
 
 def get_table_data(table: str, limit: int = 5):

@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.services.supabase_data_service import SupabaseDataService
+from backend.storage.data_backend import StorageBackend
 
 
 class EmotionRepository:
     """Data access layer for emotion readings."""
 
-    def __init__(self, data_service: SupabaseDataService | None = None) -> None:
-        self._data_service = data_service or SupabaseDataService()
+    def __init__(self, data_service: StorageBackend | None = None) -> None:
+        self._data_service = data_service or StorageBackend()
 
     async def create_reading(self, data: dict[str, Any]) -> dict[str, Any]:
         """Persist a new emotion reading."""
@@ -37,3 +37,4 @@ class EmotionRepository:
             days=days,
             order_by="created_at",
         )
+

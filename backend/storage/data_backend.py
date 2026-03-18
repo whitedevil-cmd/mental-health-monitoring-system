@@ -1,16 +1,21 @@
-"""Shared Supabase-backed data access helpers."""
+"""Supabase-backed storage with an in-memory fallback mode."""
 
 from __future__ import annotations
 
 import asyncio
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 import logging
-from typing import Any
+import os
+from typing import Any, Literal
 
-from backend.services.supabase_client import supabase
+from backend.storage.client import get_supabase_client, has_supabase_config
+from backend.utils.config import get_settings
 from backend.utils.errors import DatabaseOperationError
 
 logger = logging.getLogger(__name__)
+
+BackendMode = Literal["supabase", "memory"]
 
 TABLE_RULES: dict[str, dict[str, Any]] = {
     "users": {
@@ -62,9 +67,12 @@ TABLE_RULES: dict[str, dict[str, Any]] = {
     },
 }
 
+_FALLBACK_COUNTERS: dict[str, int] = defaultdict(int)
+_FALLBACK_STORE: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
-class SupabaseDataService:
-    """Thin async wrapper around the sync Supabase client."""
+
+class StorageBackend:
+    """Thin async wrapper around Supabase REST with memory fallback."""
 
     async def select_rows(
         self,
@@ -97,6 +105,7 @@ class SupabaseDataService:
                 "status": "ok",
                 "table": table,
                 "sample_count": len(rows),
+                "mode": self._backend_mode(),
             }
         except Exception as exc:
             return {
@@ -140,11 +149,29 @@ class SupabaseDataService:
 
         for key, value in rules["defaults"].items():
             payload.setdefault(key, value)
-
         return payload
 
-    @staticmethod
+    @classmethod
+    def _backend_mode(cls) -> BackendMode:
+        settings = get_settings()
+        configured = (settings.DATA_BACKEND or "supabase").strip().lower()
+        if configured == "memory":
+            return "memory"
+        if configured != "supabase":
+            logger.warning("Unknown DATA_BACKEND=%s; defaulting to supabase", settings.DATA_BACKEND)
+
+        if has_supabase_config():
+            return "supabase"
+
+        if settings.ENVIRONMENT != "production" or bool(os.getenv("PYTEST_CURRENT_TEST")):
+            logger.warning("Supabase config missing; falling back to in-memory backend.")
+            return "memory"
+
+        return "supabase"
+
+    @classmethod
     def _select_rows_sync(
+        cls,
         table: str,
         limit: int | None,
         eq_filters: dict[str, Any],
@@ -152,8 +179,12 @@ class SupabaseDataService:
         order_by: str | None,
         desc: bool,
     ) -> list[dict[str, Any]]:
+        if cls._backend_mode() == "memory":
+            return cls._memory_select_rows(table, limit, eq_filters, gte_filters, order_by, desc)
+
         try:
-            query = supabase.table(table).select("*")
+            client = get_supabase_client()
+            query = client.table(table).select("*")
             for key, value in eq_filters.items():
                 query = query.eq(key, value)
             for key, value in gte_filters.items():
@@ -171,10 +202,14 @@ class SupabaseDataService:
                 details=f"{table}: {exc}",
             ) from exc
 
-    @staticmethod
-    def _insert_row_sync(table: str, payload: dict[str, Any]) -> dict[str, Any]:
+    @classmethod
+    def _insert_row_sync(cls, table: str, payload: dict[str, Any]) -> dict[str, Any]:
+        if cls._backend_mode() == "memory":
+            return cls._memory_insert_row(table, payload)
+
         try:
-            result = supabase.table(table).insert(payload).execute()
+            client = get_supabase_client()
+            result = client.table(table).insert(payload).execute()
             rows = list(result.data or [])
             return rows[0] if rows else {}
         except Exception as exc:
@@ -183,3 +218,37 @@ class SupabaseDataService:
                 "Failed to insert database row.",
                 details=f"{table}: {exc}",
             ) from exc
+
+    @staticmethod
+    def _memory_insert_row(table: str, payload: dict[str, Any]) -> dict[str, Any]:
+        row = dict(payload)
+        _FALLBACK_COUNTERS[table] += 1
+        row.setdefault("id", _FALLBACK_COUNTERS[table])
+        now = datetime.now(timezone.utc)
+        if table == "emotion_logs":
+            row.setdefault("timestamp", now)
+        else:
+            row.setdefault("created_at", now)
+        _FALLBACK_STORE[table].append(row)
+        return dict(row)
+
+    @staticmethod
+    def _memory_select_rows(
+        table: str,
+        limit: int | None,
+        eq_filters: dict[str, Any],
+        gte_filters: dict[str, Any],
+        order_by: str | None,
+        desc: bool,
+    ) -> list[dict[str, Any]]:
+        rows = [dict(row) for row in _FALLBACK_STORE.get(table, [])]
+        for key, value in eq_filters.items():
+            rows = [row for row in rows if row.get(key) == value]
+        for key, value in gte_filters.items():
+            rows = [row for row in rows if row.get(key) is not None and str(row.get(key)) >= str(value)]
+        if order_by:
+            rows.sort(key=lambda row: row.get(order_by), reverse=desc)
+        if limit is not None:
+            rows = rows[:limit]
+        return rows
+

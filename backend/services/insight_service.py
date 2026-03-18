@@ -18,8 +18,8 @@ class InsightService:
         self._trend_service = trend_service or TrendService()
         self._response_service = response_service or ResponseService()
 
-    async def get_user_insights(self, user_id: str) -> InsightResponse:
+    async def get_user_insights(self, user_id: str, session: object | None = None) -> InsightResponse:  # noqa: ARG002
         """Build the dashboard insight payload for a user."""
-        insight = await self._trend_service.build_insights(user_id=user_id)
+        insight = await self._trend_service.build_insights(user_id=user_id, session=session)
         insight.supportive_message = await self._response_service.generate_supportive_message(insight)
         return insight

@@ -12,13 +12,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from backend.services.supabase_data_service import SupabaseDataService
+from backend.storage.data_backend import StorageBackend
+from backend.utils.config import get_settings
+from backend.utils.errors import DatabaseOperationError
 
 
 async def save_emotion_result(
-    user_id: str,
-    dominant_emotion: str,
-    scores: Mapping[str, float],
+    session: object | None = None,  # noqa: ARG001
+    user_id: str | None = None,
+    dominant_emotion: str = "",
+    scores: Mapping[str, float] | None = None,
     transcript: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -35,15 +38,25 @@ async def save_emotion_result(
         The newly created Supabase row payload.
     """
     # Normalize scores with defaults for missing labels
-    sad = float(scores.get("sad", 0.0))
-    happy = float(scores.get("happy", 0.0))
-    angry = float(scores.get("angry", 0.0))
-    neutral = float(scores.get("neutral", 0.0))
+    normalized_scores = scores or {}
+    sad = float(normalized_scores.get("sad", 0.0))
+    happy = float(normalized_scores.get("happy", 0.0))
+    angry = float(normalized_scores.get("angry", 0.0))
+    neutral = float(normalized_scores.get("neutral", 0.0))
+    resolved_user_id = user_id or get_settings().SUPABASE_DEBUG_USER_ID
+    if not resolved_user_id:
+        if get_settings().ENVIRONMENT == "production":
+            raise DatabaseOperationError(
+                "Missing user_id for emotion log persistence.",
+                details="Provide a user_id or configure SUPABASE_DEBUG_USER_ID.",
+                status_code=400,
+            )
+        resolved_user_id = "local-debug-user"
 
-    return await SupabaseDataService().insert_row(
+    return await StorageBackend().insert_row(
         "emotion_logs",
         {
-            "user_id": user_id,
+            "user_id": resolved_user_id,
             "dominant_emotion": dominant_emotion,
             "sad_score": sad,
             "happy_score": happy,

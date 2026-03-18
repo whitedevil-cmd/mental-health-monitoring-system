@@ -26,7 +26,10 @@ def main() -> None:
         )
         return
 
+    environment = os.getenv("ENVIRONMENT", "development").lower()
     test_user_id = os.getenv("SUPABASE_DEBUG_USER_ID")
+    if not test_user_id and environment != "production":
+        test_user_id = "local-debug-user"
     payload = {
         "dominant_emotion": "agent_test",
     }
@@ -39,6 +42,8 @@ def main() -> None:
     print(get_table_data("emotion_logs"))
 
     print("\n[2] Testing insert:")
+    if "user_id" not in payload:
+        print({"warning": "SUPABASE_DEBUG_USER_ID is not set; inserts into user-scoped tables may fail in production."})
     insert_result = insert_row("emotion_logs", payload)
     print(insert_result)
 

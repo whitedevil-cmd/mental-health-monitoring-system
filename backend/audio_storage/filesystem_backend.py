@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import UploadFile, status
@@ -42,7 +42,7 @@ class FileSystemAudioStorage:
         user_dir.mkdir(parents=True, exist_ok=True)
 
         file_path = user_dir / filename
-        stored_at = datetime.utcnow()
+        stored_at = datetime.now(timezone.utc)
         await self._write_file(file_path, file)
         logger.info("Stored audio upload for user %s at %s", user_id, file_path)
         return audio_id, file_path, stored_at
@@ -50,7 +50,7 @@ class FileSystemAudioStorage:
     async def save_wav_upload(self, file: UploadFile) -> str:
         """Validate and store a WAV upload under backend/audio_storage."""
         self._validate_wav_upload(file)
-        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
         filename = f"recording_{timestamp}.wav"
         file_path = self._wav_upload_dir / filename
 

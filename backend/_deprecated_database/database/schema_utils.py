@@ -23,3 +23,4 @@ async def ensure_sqlite_column(
         await conn.exec_driver_sql(
             f"ALTER TABLE {table_name} ADD COLUMN {column_definition}"
         )
+

@@ -28,6 +28,13 @@ MODEL_ID = get_settings().MODEL_NAME
 TARGET_SAMPLE_RATE = 16000
 
 
+def pipeline(*args, **kwargs):
+    """Lazily import transformers.pipeline only when the model is first needed."""
+    from transformers import pipeline as transformers_pipeline
+
+    return transformers_pipeline(*args, **kwargs)
+
+
 def _get_torch():
     import torch
 
@@ -120,7 +127,6 @@ def get_model() -> Any:
     Load Hugging Face audio classification pipeline once.
     """
 
-    from transformers import pipeline
     torch = _get_torch()
 
     device = 0 if torch.cuda.is_available() else -1
