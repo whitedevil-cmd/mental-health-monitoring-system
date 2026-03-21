@@ -1,22 +1,20 @@
 import { apiClient } from '@/lib/apiClient';
 
 const DEEPGRAM_WS_URL = 'wss://api.deepgram.com/v1/listen';
+const KEEP_ALIVE_INTERVAL_MS = 10_000;
 
-const buildDeepgramUrl = (sampleRate: number, token?: string): string => {
+const buildDeepgramUrl = (sampleRate: number): string => {
   const url = new URL(DEEPGRAM_WS_URL);
   url.searchParams.set('model', 'nova-3');
   url.searchParams.set('encoding', 'linear16');
   url.searchParams.set('sample_rate', String(sampleRate));
   url.searchParams.set('channels', '1');
   url.searchParams.set('smart_format', 'true');
+  url.searchParams.set('punctuate', 'true');
   url.searchParams.set('interim_results', 'true');
   url.searchParams.set('endpointing', '300');
   url.searchParams.set('utterance_end_ms', '1000');
-  const built = url.toString();
-  if (!token) {
-    return built;
-  }
-  return `${built}&token=${encodeURIComponent(`bearer ${token}`)}`;
+  return url.toString();
 };
 
 const toInt16Buffer = (input: Float32Array): ArrayBuffer => {
@@ -50,6 +48,7 @@ export class DeepgramLiveClient {
   private finalSegments: string[] = [];
   private interimSegment = '';
   private manualClose = false;
+  private keepAliveTimer: number | null = null;
 
   constructor(options: DeepgramLiveOptions) {
     this.sampleRate = options.sampleRate;
@@ -77,12 +76,13 @@ export class DeepgramLiveClient {
     await new Promise<void>((resolve, reject) => {
       let opened = false;
       let settled = false;
-      const socket = new WebSocket(buildDeepgramUrl(this.sampleRate, token));
+      const socket = new WebSocket(buildDeepgramUrl(this.sampleRate), ['bearer', token]);
       this.socket = socket;
 
       socket.onopen = () => {
         opened = true;
         settled = true;
+        this.startKeepAlive();
         this.onOpen?.();
         resolve();
       };
@@ -101,6 +101,7 @@ export class DeepgramLiveClient {
       };
 
       socket.onclose = async (event) => {
+        this.stopKeepAlive();
         this.socket = null;
         this.onClose?.();
         if (!opened && !settled) {
@@ -149,6 +150,8 @@ export class DeepgramLiveClient {
     }
 
     this.manualClose = true;
+    this.stopKeepAlive();
+    this.socket.send(JSON.stringify({ type: 'CloseStream' }));
     this.socket.close(1000, 'client-stop');
   }
 
@@ -181,6 +184,25 @@ export class DeepgramLiveClient {
       this.onTranscript(this.getTranscript());
     } catch {
       this.onError?.('Received an invalid Deepgram transcript message.');
+    }
+  }
+
+  private startKeepAlive(): void {
+    this.stopKeepAlive();
+    this.keepAliveTimer = window.setInterval(() => {
+      if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+        this.stopKeepAlive();
+        return;
+      }
+
+      this.socket.send(JSON.stringify({ type: 'KeepAlive' }));
+    }, KEEP_ALIVE_INTERVAL_MS);
+  }
+
+  private stopKeepAlive(): void {
+    if (this.keepAliveTimer !== null) {
+      window.clearInterval(this.keepAliveTimer);
+      this.keepAliveTimer = null;
     }
   }
 }
