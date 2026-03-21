@@ -18,6 +18,12 @@ const Voice = () => {
     setAiResponse(data.aiResponse);
   };
 
+  const handleTranscriptChange = (nextTranscript: string) => {
+    setTranscript(nextTranscript);
+    setEmotions([]);
+    setAiResponse('');
+  };
+
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto">
@@ -27,7 +33,7 @@ const Voice = () => {
         </motion.div>
 
         <div className="flex flex-col items-center mb-10">
-          <VoiceRecorder onResult={handleResult} />
+          <VoiceRecorder onResult={handleResult} onTranscriptChange={handleTranscriptChange} />
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">

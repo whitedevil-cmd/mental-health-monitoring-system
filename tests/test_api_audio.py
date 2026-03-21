@@ -57,3 +57,16 @@ def test_upload_audio_with_user_id(client: TestClient):
     assert body["audio_id"]
     assert "stored_at" in body
 
+
+def test_upload_audio_rejects_empty_wav(client: TestClient):
+    """Uploading an empty WAV file should be rejected consistently."""
+    files = {
+        "file": ("empty.wav", io.BytesIO(b""), "audio/wav"),
+    }
+
+    response = client.post("/api/v1/audio/upload-audio", files=files)
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error"] == "Audio file is empty."
+

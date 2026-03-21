@@ -35,6 +35,16 @@ def test_upload_audio_via_top_level_alias(client: TestClient):
     assert data["file_path"].endswith(".wav")
 
 
+def test_upload_audio_alias_rejects_invalid_file(client: TestClient):
+    """Top-level upload alias should reject invalid formats with a stable error."""
+    files = {
+        "file": ("bad.mp3", io.BytesIO(b"fake-mp3"), "audio/mpeg"),
+    }
+    resp = client.post("/upload-audio", files=files)
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "Only WAV audio files are supported."
+
+
 def test_full_pipeline(client: TestClient, monkeypatch):
     """
     End-to-end: upload -> detect (mocked) -> store -> query trend.
@@ -50,7 +60,7 @@ def test_full_pipeline(client: TestClient, monkeypatch):
     assert upload_resp.status_code == 201
     file_path = upload_resp.json()["file_path"]
 
-    def fake_detect_from_audio_path(self, path):  # noqa: ANN001
+    async def fake_detect_from_audio_path_async(self, path):  # noqa: ANN001
         return EmotionDetectionResult(
             dominant_emotion="sad",
             scores={"sad": 0.65, "happy": 0.10, "angry": 0.12, "neutral": 0.13},
@@ -67,8 +77,8 @@ def test_full_pipeline(client: TestClient, monkeypatch):
         fake_audio.write_bytes(b"RIFFxxxxWAVE")
 
     monkeypatch.setattr(
-        "backend.services.emotion_detection_service.EmotionDetectionService.detect_from_audio_path",
-        fake_detect_from_audio_path,
+        "backend.services.emotion_detection_service.EmotionDetectionService.detect_from_audio_path_async",
+        fake_detect_from_audio_path_async,
         raising=True,
     )
 

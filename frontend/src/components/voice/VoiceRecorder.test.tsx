@@ -5,6 +5,11 @@ import VoiceRecorder from "@/components/voice/VoiceRecorder";
 class FakeAnalyser {
   fftSize = 0;
   frequencyBinCount = 32;
+
+  connect() {}
+
+  disconnect() {}
+
   getByteFrequencyData(data: Uint8Array) {
     for (let i = 0; i < data.length; i += 1) {
       data[i] = 0;
@@ -12,32 +17,63 @@ class FakeAnalyser {
   }
 }
 
+class FakeScriptProcessor {
+  onaudioprocess: ((event: { inputBuffer: { getChannelData: (_channel: number) => Float32Array } }) => void) | null = null;
+
+  connect() {}
+
+  disconnect() {}
+}
+
 class FakeAudioContext {
+  sampleRate = 16000;
+  destination = {};
+
   createMediaStreamSource() {
-    return { connect: () => {} };
+    return { connect: () => {}, disconnect: () => {} };
   }
+
   createAnalyser() {
     return new FakeAnalyser();
   }
+
+  createScriptProcessor() {
+    return new FakeScriptProcessor();
+  }
+
   close = vi.fn().mockResolvedValue(undefined);
 }
 
-class FakeMediaRecorder {
-  ondataavailable: ((event: { data: Blob }) => void) | null = null;
-  onstop: (() => void) | null = null;
+class FakeWebSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSING = 2;
+  static CLOSED = 3;
 
-  constructor(public stream: MediaStream) {}
+  onopen: (() => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  readyState = FakeWebSocket.OPEN;
 
-  start() {}
+  constructor(public url: string, public protocols?: string | string[]) {
+    queueMicrotask(() => {
+      this.onopen?.();
+    });
+  }
 
-  stop() {
-    this.onstop?.();
+  send() {}
+
+  close() {
+    this.readyState = FakeWebSocket.CLOSED;
+    this.onclose?.();
   }
 }
 
 describe("VoiceRecorder", () => {
   const originalAudioContext = globalThis.AudioContext;
-  const originalMediaRecorder = globalThis.MediaRecorder;
+  const originalWebSocket = globalThis.WebSocket;
+  const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
     const track = { stop: vi.fn() };
@@ -50,7 +86,11 @@ describe("VoiceRecorder", () => {
     });
 
     globalThis.AudioContext = FakeAudioContext as unknown as typeof AudioContext;
-    globalThis.MediaRecorder = FakeMediaRecorder as unknown as typeof MediaRecorder;
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ token: "temporary-deepgram-token" }),
+    } as unknown as Response);
 
     vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 0);
     vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
@@ -59,11 +99,13 @@ describe("VoiceRecorder", () => {
   afterEach(() => {
     cleanup();
     globalThis.AudioContext = originalAudioContext;
-    globalThis.MediaRecorder = originalMediaRecorder;
+    globalThis.WebSocket = originalWebSocket;
+    globalThis.fetch = originalFetch;
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
-  it("shows listening state after starting recording", async () => {
+  it("shows streaming state after starting recording", async () => {
     render(<VoiceRecorder />);
 
     expect(screen.getByText("Tap to start speaking")).toBeInTheDocument();
@@ -71,7 +113,18 @@ describe("VoiceRecorder", () => {
     const button = screen.getByRole("button");
     fireEvent.click(button);
 
-    expect(await screen.findByText(/Listening/i)).toBeInTheDocument();
-    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({ audio: true });
+    expect(await screen.findByText(/Streaming live transcript/i)).toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/deepgram-token"),
+      expect.any(Object),
+    );
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
   });
 });

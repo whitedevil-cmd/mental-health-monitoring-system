@@ -35,6 +35,7 @@ class FileSystemAudioStorage:
 
     async def save(self, user_id: str, file: UploadFile) -> tuple[str, Path, datetime]:
         """Store a user-scoped audio file and return its metadata."""
+        self._validate_audio_upload(file)
         audio_id = str(uuid.uuid4())
         suffix = Path(file.filename or "").suffix or ".wav"
         filename = f"{audio_id}{suffix}"
@@ -49,7 +50,7 @@ class FileSystemAudioStorage:
 
     async def save_wav_upload(self, file: UploadFile) -> str:
         """Validate and store a WAV upload under backend/audio_storage."""
-        self._validate_wav_upload(file)
+        self._validate_audio_upload(file)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
         filename = f"recording_{timestamp}.wav"
         file_path = self._wav_upload_dir / filename
@@ -69,8 +70,8 @@ class FileSystemAudioStorage:
 
         return resolved
 
-    def _validate_wav_upload(self, file: UploadFile) -> None:
-        """Validate content type, extension, and size for WAV uploads."""
+    def _validate_audio_upload(self, file: UploadFile) -> None:
+        """Validate content type, extension, emptiness, and size for uploads."""
         if file.content_type not in self._ALLOWED_WAV_TYPES:
             raise AudioValidationError("Only WAV audio files are supported.")
 
@@ -81,6 +82,8 @@ class FileSystemAudioStorage:
         file.file.seek(0, 2)
         file_size = file.file.tell()
         file.file.seek(0)
+        if file_size <= 0:
+            raise AudioValidationError("Audio file is empty.")
         if file_size > self._MAX_WAV_SIZE_BYTES:
             raise AudioValidationError(
                 "File size exceeds the 10MB limit.",

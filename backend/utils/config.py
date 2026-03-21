@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str | None = None
     LLM_API_KEY: str | None = None
 
+    # Deepgram Speech-to-Text (REST uploads)
+    DEEPGRAM_API_KEY: str | None = None
+
     # ElevenLabs Speech-to-Text
     ELEVENLABS_API_KEY: str | None = None
     ELEVENLABS_STT_URL: str = "wss://api.elevenlabs.io/v1/speech-to-text/realtime"

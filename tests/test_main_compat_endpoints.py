@@ -7,6 +7,9 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
+from backend.main import create_app
+from backend.utils.config import get_settings
+
 
 def test_health_endpoint(client: TestClient):
     response = client.get("/health")
@@ -73,7 +76,7 @@ def test_analyze_audio_stores_result_and_returns_payload(client: TestClient, mon
     async def fake_handle_wav_upload(self, file):  # noqa: ANN001, ARG001
         return {"status": "success", "file_path": "audio_storage/test.wav"}
 
-    def fake_detect_from_audio_path(self, audio_path):  # noqa: ANN001, ARG001
+    async def fake_detect_from_audio_path_async(self, audio_path):  # noqa: ANN001, ARG001
         return SimpleNamespace(
             dominant_emotion="neutral",
             scores={"neutral": 0.83, "sad": 0.1, "happy": 0.04, "angry": 0.03},
@@ -96,8 +99,8 @@ def test_analyze_audio_stores_result_and_returns_payload(client: TestClient, mon
         fake_handle_wav_upload,
     )
     monkeypatch.setattr(
-        "backend.services.emotion_detection_service.EmotionDetectionService.detect_from_audio_path",
-        fake_detect_from_audio_path,
+        "backend.services.emotion_detection_service.EmotionDetectionService.detect_from_audio_path_async",
+        fake_detect_from_audio_path_async,
     )
     monkeypatch.setattr(
         "backend.services.support_generator.SupportGeneratorService.generate_support_message",
@@ -126,3 +129,57 @@ def test_analyze_audio_stores_result_and_returns_payload(client: TestClient, mon
         "transcript": "Test transcript",
         "session_bound": False,
     }
+
+
+def test_analyze_audio_handles_multiple_sequential_requests(client: TestClient, monkeypatch):
+    call_counts = {"detect": 0, "support": 0}
+
+    async def fake_handle_wav_upload(self, file):  # noqa: ANN001, ARG001
+        return {"status": "success", "file_path": "audio_storage/test.wav"}
+
+    async def fake_detect_from_audio_path_async(self, audio_path):  # noqa: ANN001, ARG001
+        call_counts["detect"] += 1
+        return SimpleNamespace(
+            dominant_emotion="neutral",
+            scores={"neutral": 0.8, "sad": 0.1, "happy": 0.05, "angry": 0.05},
+            transcript="Sequential transcript",
+        )
+
+    def fake_generate_support_message(self, current_emotion, trend_summary, memory_context):  # noqa: ANN001, ARG001
+        call_counts["support"] += 1
+        return f"support for {current_emotion}"
+
+    async def fake_save_emotion_result(session, dominant_emotion, scores, transcript):  # noqa: ANN001, ARG001
+        return None
+
+    monkeypatch.setattr("backend.services.audio_service.AudioService.handle_wav_upload", fake_handle_wav_upload)
+    monkeypatch.setattr(
+        "backend.services.emotion_detection_service.EmotionDetectionService.detect_from_audio_path_async",
+        fake_detect_from_audio_path_async,
+    )
+    monkeypatch.setattr(
+        "backend.services.support_generator.SupportGeneratorService.generate_support_message",
+        fake_generate_support_message,
+    )
+    monkeypatch.setattr("backend.api.emotion_routes.save_emotion_result", fake_save_emotion_result)
+
+    for _ in range(3):
+        files = {"file": ("sample.wav", io.BytesIO(b"RIFF\x00\x00\x00\x00WAVE"), "audio/wav")}
+        response = client.post("/analyze-audio", files=files)
+        assert response.status_code == 200
+        assert response.json()["emotion"] == "neutral"
+
+    assert call_counts == {"detect": 3, "support": 3}
+
+
+def test_debug_endpoints_disabled_in_production(monkeypatch):
+    get_settings.cache_clear()
+    monkeypatch.setenv("ENVIRONMENT", "production")
+
+    production_client = TestClient(create_app())
+    try:
+        assert production_client.get("/debug/routes").status_code == 404
+        assert production_client.get("/debug/config").status_code == 404
+    finally:
+        production_client.close()
+        get_settings.cache_clear()

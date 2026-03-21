@@ -8,6 +8,7 @@ from pathlib import Path
 import uuid
 
 from backend.services.audio_service import AudioService
+from backend.services.deepgram_asr import transcribe_audio_deepgram
 from backend.services.emotion_detector import detect_emotion as default_detect_emotion
 from backend.services.emotion_fusion import fuse_emotions
 from backend.services.elevenlabs_asr import transcribe_audio_elevenlabs
@@ -94,6 +95,46 @@ def _safe_transcribe(audio_path: str, resolved: Path) -> str:
     return transcript
 
 
+async def _safe_transcribe_rest(audio_path: str, resolved: Path) -> str:
+    """Transcribe audio via Deepgram for REST uploads without blocking the event loop."""
+    logger.info("Deepgram transcription start for %s", audio_path)
+    try:
+        audio_bytes = await asyncio.to_thread(resolved.read_bytes)
+    except OSError as exc:
+        logger.exception("Failed reading audio for %s: %s", audio_path, exc)
+        raise AudioProcessingError(
+            "Audio processing failed.",
+            details="Unable to read audio file.",
+        ) from exc
+
+    try:
+        transcript = await transcribe_audio_deepgram(audio_bytes)
+    except AudioProcessingError as exc:
+        logger.warning("Deepgram STT failed for %s: %s", audio_path, exc)
+        raise
+    except Exception as exc:  # pragma: no cover - environment/audio quality dependent
+        logger.exception("Transcription failed for %s: %s", audio_path, exc)
+        raise AudioProcessingError(
+            "Transcription failed.",
+            details="Unexpected Deepgram STT error.",
+        ) from exc
+
+    logger.info("Deepgram transcription completed for %s", audio_path)
+    return transcript
+
+
+async def _detect_text_scores_async(audio_path: str, transcript: str) -> dict[str, float]:
+    """Run text emotion detection in a worker thread because the model is CPU-bound."""
+    if not transcript.strip():
+        return {}
+
+    try:
+        return await asyncio.to_thread(get_text_emotion_detector().detect, transcript)
+    except Exception as exc:  # pragma: no cover - model/runtime dependent
+        logger.exception("Text emotion detection failed for %s: %s", audio_path, exc)
+        return {}
+
+
 def _process_audio_path_sync(
     audio_path: str,
     resolved: Path,
@@ -164,6 +205,38 @@ async def _process_audio_path_async(
     }
 
 
+async def _process_audio_path_rest_async(
+    audio_path: str,
+    resolved: Path,
+    *,
+    audio_detector=default_detect_emotion,
+) -> dict[str, object]:
+    """Run the REST audio pipeline with Deepgram STT and non-blocking async boundaries."""
+    audio_task = asyncio.to_thread(
+        _detect_audio_scores,
+        audio_path,
+        resolved,
+        audio_detector=audio_detector,
+    )
+    transcribe_task = _safe_transcribe_rest(audio_path, resolved)
+
+    audio_scores, transcript = await asyncio.gather(audio_task, transcribe_task)
+    text_scores = await _detect_text_scores_async(audio_path, transcript)
+
+    final_emotion, combined_scores = fuse_emotions(audio_scores, text_scores)
+    if not combined_scores:
+        raise EmotionDetectionError("Emotion detection returned no scores.", details="Model inference error.")
+
+    logger.info("Emotion detection completed for %s", audio_path)
+    return {
+        "emotion": final_emotion,
+        "transcript": transcript,
+        "audio_scores": dict(audio_scores),
+        "text_scores": dict(text_scores),
+        "combined_scores": dict(combined_scores),
+    }
+
+
 def _process_audio_file_sync(
     audio_path: str,
     *,
@@ -174,6 +247,18 @@ def _process_audio_file_sync(
     if not resolved.exists() or not resolved.is_file():
         raise ResourceNotFoundError("Audio file not found.", details="The referenced audio file does not exist.")
     return _process_audio_path_sync(audio_path, resolved, audio_detector=audio_detector)
+
+
+async def _process_audio_file_rest_async(
+    audio_path: str,
+    *,
+    audio_detector=default_detect_emotion,
+) -> dict[str, object]:
+    """Run the REST audio pipeline asynchronously using Deepgram for transcription."""
+    resolved = _resolve_audio_path(audio_path)
+    if not resolved.exists() or not resolved.is_file():
+        raise ResourceNotFoundError("Audio file not found.", details="The referenced audio file does not exist.")
+    return await _process_audio_path_rest_async(audio_path, resolved, audio_detector=audio_detector)
 
 
 async def process_audio_file(

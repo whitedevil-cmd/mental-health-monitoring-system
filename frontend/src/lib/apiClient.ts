@@ -1,4 +1,4 @@
-const API_BASE =
+export const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
   (import.meta.env.DEV ? 'http://127.0.0.1:8001' : '');
 
@@ -25,6 +25,11 @@ export interface HistoryResponseItem {
   emotion: string;
   confidence: number;
   transcript: string | null;
+}
+
+export interface DeepgramTokenResponse {
+  token: string;
+  expires_in: number;
 }
 
 class ApiClient {
@@ -72,6 +77,10 @@ class ApiClient {
   async getHistory(userId?: string): Promise<HistoryResponseItem[]> {
     const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
     return this.request<HistoryResponseItem[]>(`/history${query}`);
+  }
+
+  async getDeepgramToken(): Promise<DeepgramTokenResponse> {
+    return this.request<DeepgramTokenResponse>('/deepgram-token');
   }
 }
 

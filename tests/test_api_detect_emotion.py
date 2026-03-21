@@ -16,7 +16,7 @@ def test_detect_emotion_success(client: TestClient, monkeypatch, tmp_path: Path)
     fake_audio = storage_dir / "recording_123.wav"
     fake_audio.write_bytes(b"RIFFxxxxWAVE")
 
-    def fake_detect_from_audio_path(self, path):  # noqa: ANN001
+    async def fake_detect_from_audio_path_async(self, path):  # noqa: ANN001
         assert str(path) == "audio_storage/recording_123.wav"
         return EmotionDetectionResult(
             dominant_emotion="sad",
@@ -28,8 +28,8 @@ def test_detect_emotion_success(client: TestClient, monkeypatch, tmp_path: Path)
         )
 
     monkeypatch.setattr(
-        "backend.services.emotion_detection_service.EmotionDetectionService.detect_from_audio_path",
-        fake_detect_from_audio_path,
+        "backend.services.emotion_detection_service.EmotionDetectionService.detect_from_audio_path_async",
+        fake_detect_from_audio_path_async,
         raising=True,
     )
 
