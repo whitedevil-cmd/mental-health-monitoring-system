@@ -2,7 +2,7 @@ import { apiClient } from '@/lib/apiClient';
 
 const DEEPGRAM_WS_URL = 'wss://api.deepgram.com/v1/listen';
 
-const buildDeepgramUrl = (sampleRate: number): string => {
+const buildDeepgramUrl = (sampleRate: number, token?: string): string => {
   const url = new URL(DEEPGRAM_WS_URL);
   url.searchParams.set('model', 'nova-3');
   url.searchParams.set('encoding', 'linear16');
@@ -12,6 +12,9 @@ const buildDeepgramUrl = (sampleRate: number): string => {
   url.searchParams.set('interim_results', 'true');
   url.searchParams.set('endpointing', '300');
   url.searchParams.set('utterance_end_ms', '1000');
+  if (token) {
+    url.searchParams.set('token', `bearer ${token}`);
+  }
   return url.toString();
 };
 
@@ -73,7 +76,7 @@ export class DeepgramLiveClient {
     await new Promise<void>((resolve, reject) => {
       let opened = false;
       let settled = false;
-      const socket = new WebSocket(buildDeepgramUrl(this.sampleRate), ['token', token]);
+      const socket = new WebSocket(buildDeepgramUrl(this.sampleRate, token));
       this.socket = socket;
 
       socket.onopen = () => {
