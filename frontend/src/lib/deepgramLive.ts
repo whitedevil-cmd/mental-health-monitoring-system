@@ -27,12 +27,16 @@ const toInt16Buffer = (input: Float32Array): ArrayBuffer => {
 };
 
 type TranscriptHandler = (transcript: string) => void;
+type FinalTranscriptHandler = (segment: { id: string; transcript: string; speechFinal: boolean }) => void;
+type UtteranceEndHandler = () => void;
 type VoidHandler = () => void;
 type ErrorHandler = (message: string) => void;
 
 interface DeepgramLiveOptions {
   sampleRate: number;
   onTranscript: TranscriptHandler;
+  onFinalTranscript?: FinalTranscriptHandler;
+  onUtteranceEnd?: UtteranceEndHandler;
   onOpen?: VoidHandler;
   onClose?: VoidHandler;
   onError?: ErrorHandler;
@@ -41,6 +45,8 @@ interface DeepgramLiveOptions {
 export class DeepgramLiveClient {
   private readonly sampleRate: number;
   private readonly onTranscript: TranscriptHandler;
+  private readonly onFinalTranscript?: FinalTranscriptHandler;
+  private readonly onUtteranceEnd?: UtteranceEndHandler;
   private readonly onOpen?: VoidHandler;
   private readonly onClose?: VoidHandler;
   private readonly onError?: ErrorHandler;
@@ -53,6 +59,8 @@ export class DeepgramLiveClient {
   constructor(options: DeepgramLiveOptions) {
     this.sampleRate = options.sampleRate;
     this.onTranscript = options.onTranscript;
+    this.onFinalTranscript = options.onFinalTranscript;
+    this.onUtteranceEnd = options.onUtteranceEnd;
     this.onOpen = options.onOpen;
     this.onClose = options.onClose;
     this.onError = options.onError;
@@ -166,9 +174,16 @@ export class DeepgramLiveClient {
 
     try {
       const payload = JSON.parse(raw) as {
+        type?: string;
         channel?: { alternatives?: Array<{ transcript?: string }> };
         is_final?: boolean;
+        speech_final?: boolean;
       };
+      if (payload.type === 'UtteranceEnd') {
+        this.onUtteranceEnd?.();
+        return;
+      }
+
       const transcript = payload.channel?.alternatives?.[0]?.transcript?.trim() || '';
       if (!transcript) {
         return;
@@ -177,6 +192,11 @@ export class DeepgramLiveClient {
       if (payload.is_final) {
         this.finalSegments.push(transcript);
         this.interimSegment = '';
+        this.onFinalTranscript?.({
+          id: `segment-${this.finalSegments.length}`,
+          transcript,
+          speechFinal: Boolean(payload.speech_final),
+        });
       } else {
         this.interimSegment = transcript;
       }

@@ -32,6 +32,11 @@ export interface DeepgramTokenResponse {
   expires_in: number;
 }
 
+export interface AnalyzeTextResponse {
+  emotion: string;
+  confidence: number;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -81,6 +86,13 @@ class ApiClient {
 
   async getDeepgramToken(): Promise<DeepgramTokenResponse> {
     return this.request<DeepgramTokenResponse>('/deepgram-token');
+  }
+
+  async analyzeText(text: string): Promise<AnalyzeTextResponse> {
+    return this.request<AnalyzeTextResponse>('/analyze-text', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
   }
 }
 

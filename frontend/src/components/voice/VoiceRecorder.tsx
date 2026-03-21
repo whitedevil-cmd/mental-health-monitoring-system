@@ -8,11 +8,13 @@ import { DeepgramLiveClient } from '@/lib/deepgramLive';
 interface VoiceRecorderProps {
   onResult?: (data: { transcript: string; emotions: EmotionScore[]; aiResponse: string }) => void;
   onTranscriptChange?: (transcript: string) => void;
+  onFinalTranscript?: (segment: { id: string; transcript: string; speechFinal: boolean }) => void;
+  onUtteranceEnd?: () => void;
 }
 
 type RecorderStatus = 'idle' | 'connecting' | 'recording' | 'processing';
 
-const VoiceRecorder = ({ onResult, onTranscriptChange }: VoiceRecorderProps) => {
+const VoiceRecorder = ({ onResult, onTranscriptChange, onFinalTranscript, onUtteranceEnd }: VoiceRecorderProps) => {
   const [status, setStatus] = useState<RecorderStatus>('idle');
   const [duration, setDuration] = useState(0);
   const [analyzerData, setAnalyzerData] = useState<number[]>(new Array(32).fill(0));
@@ -136,6 +138,8 @@ const VoiceRecorder = ({ onResult, onTranscriptChange }: VoiceRecorderProps) => 
       const deepgram = new DeepgramLiveClient({
         sampleRate: audioContext.sampleRate,
         onTranscript: updateTranscript,
+        onFinalTranscript,
+        onUtteranceEnd,
         onOpen: () => {
           setStatus('recording');
         },
@@ -173,7 +177,7 @@ const VoiceRecorder = ({ onResult, onTranscriptChange }: VoiceRecorderProps) => 
         variant: 'destructive',
       });
     }
-  }, [cleanupAudioGraph, onResult, status, updateTranscript, visualize]);
+  }, [cleanupAudioGraph, onFinalTranscript, onResult, onUtteranceEnd, status, updateTranscript, visualize]);
 
   useEffect(() => {
     return () => {
@@ -272,14 +276,14 @@ const VoiceRecorder = ({ onResult, onTranscriptChange }: VoiceRecorderProps) => 
 
       <div className="text-center">
         {status === 'idle' && <p className="text-muted-foreground">Tap to start speaking</p>}
-        {status === 'connecting' && <p className="text-muted-foreground">Connecting to Deepgram…</p>}
+        {status === 'connecting' && <p className="text-muted-foreground">Connecting to Deepgram...</p>}
         {status === 'recording' && (
           <div className="space-y-1">
-            <p className="font-medium text-primary">Streaming live transcript…</p>
+            <p className="font-medium text-primary">Streaming live transcript...</p>
             <p className="font-mono text-sm text-muted-foreground">{formatTime(duration)}</p>
           </div>
         )}
-        {status === 'processing' && <p className="text-muted-foreground">Finalizing transcript…</p>}
+        {status === 'processing' && <p className="text-muted-foreground">Finalizing transcript...</p>}
       </div>
     </div>
   );
