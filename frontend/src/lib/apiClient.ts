@@ -43,7 +43,7 @@ class ApiClient {
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string> || {}),
     };
-    if (!(options.body instanceof FormData)) {
+    if (options.body && !(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
     }
 
