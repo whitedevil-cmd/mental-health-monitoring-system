@@ -12,10 +12,11 @@ const buildDeepgramUrl = (sampleRate: number, token?: string): string => {
   url.searchParams.set('interim_results', 'true');
   url.searchParams.set('endpointing', '300');
   url.searchParams.set('utterance_end_ms', '1000');
-  if (token) {
-    url.searchParams.set('token', `bearer ${token}`);
+  const built = url.toString();
+  if (!token) {
+    return built;
   }
-  return url.toString();
+  return `${built}&token=${encodeURIComponent(`bearer ${token}`)}`;
 };
 
 const toInt16Buffer = (input: Float32Array): ArrayBuffer => {
