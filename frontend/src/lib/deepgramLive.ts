@@ -2,6 +2,8 @@ import { apiClient } from '@/lib/apiClient';
 
 const DEEPGRAM_WS_URL = 'wss://api.deepgram.com/v1/listen';
 const KEEP_ALIVE_INTERVAL_MS = 10_000;
+const RECONNECT_BASE_DELAY_MS = 350;
+const MAX_RECONNECT_ATTEMPTS = 2;
 
 const buildDeepgramUrl = (sampleRate: number): string => {
   const url = new URL(DEEPGRAM_WS_URL);
@@ -30,6 +32,7 @@ type TranscriptHandler = (transcript: string) => void;
 type FinalTranscriptHandler = (segment: { id: string; transcript: string; speechFinal: boolean }) => void;
 type UtteranceEndHandler = () => void;
 type VoidHandler = () => void;
+type CloseHandler = (event: { manual: boolean; code: number; wasConnected: boolean }) => void;
 type ErrorHandler = (message: string) => void;
 
 interface DeepgramLiveOptions {
@@ -38,7 +41,7 @@ interface DeepgramLiveOptions {
   onFinalTranscript?: FinalTranscriptHandler;
   onUtteranceEnd?: UtteranceEndHandler;
   onOpen?: VoidHandler;
-  onClose?: VoidHandler;
+  onClose?: CloseHandler;
   onError?: ErrorHandler;
 }
 
@@ -48,13 +51,14 @@ export class DeepgramLiveClient {
   private readonly onFinalTranscript?: FinalTranscriptHandler;
   private readonly onUtteranceEnd?: UtteranceEndHandler;
   private readonly onOpen?: VoidHandler;
-  private readonly onClose?: VoidHandler;
+  private readonly onClose?: CloseHandler;
   private readonly onError?: ErrorHandler;
   private socket: WebSocket | null = null;
   private finalSegments: string[] = [];
   private interimSegment = '';
   private manualClose = false;
   private keepAliveTimer: number | null = null;
+  private reconnectAttempts = 0;
 
   constructor(options: DeepgramLiveOptions) {
     this.sampleRate = options.sampleRate;
@@ -72,6 +76,7 @@ export class DeepgramLiveClient {
     }
 
     this.manualClose = false;
+    this.reconnectAttempts = 0;
     await this.openSocketWithFreshToken(1);
   }
 
@@ -90,6 +95,7 @@ export class DeepgramLiveClient {
       socket.onopen = () => {
         opened = true;
         settled = true;
+        this.reconnectAttempts = 0;
         this.startKeepAlive();
         this.onOpen?.();
         resolve();
@@ -111,8 +117,12 @@ export class DeepgramLiveClient {
       socket.onclose = async (event) => {
         this.stopKeepAlive();
         this.socket = null;
-        this.onClose?.();
         if (!opened && !settled) {
+          this.onClose?.({
+            manual: this.manualClose,
+            code: event.code,
+            wasConnected: opened,
+          });
           settled = true;
           if (retriesRemaining > 0) {
             try {
@@ -129,8 +139,38 @@ export class DeepgramLiveClient {
           return;
         }
 
-        if (!this.manualClose && opened && (event.code === 1008 || event.code === 1011)) {
-          this.onError?.('Deepgram session expired. Start recording again to fetch a fresh token.');
+        if (!this.manualClose && opened && this.shouldReconnect(event.code)) {
+          const reconnectAttempt = this.reconnectAttempts + 1;
+          if (reconnectAttempt <= MAX_RECONNECT_ATTEMPTS) {
+            this.reconnectAttempts = reconnectAttempt;
+            try {
+              await this.delay(RECONNECT_BASE_DELAY_MS * reconnectAttempt);
+              if (!this.manualClose) {
+                await this.openSocketWithFreshToken(1);
+                return;
+              }
+            } catch (error) {
+              this.onError?.(
+                error instanceof Error
+                  ? error.message
+                  : 'Deepgram streaming reconnection failed.',
+              );
+            }
+          }
+        }
+
+        this.onClose?.({
+          manual: this.manualClose,
+          code: event.code,
+          wasConnected: opened,
+        });
+
+        if (!this.manualClose && opened) {
+          this.onError?.(
+            event.code === 1008 || event.code === 1011
+              ? 'Deepgram session expired. Start recording again to fetch a fresh token.'
+              : 'Deepgram streaming disconnected. Start recording again if recovery does not complete.',
+          );
         }
       };
     });
@@ -224,5 +264,15 @@ export class DeepgramLiveClient {
       window.clearInterval(this.keepAliveTimer);
       this.keepAliveTimer = null;
     }
+  }
+
+  private shouldReconnect(code: number): boolean {
+    return code === 1006 || code === 1012 || code === 1013;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      window.setTimeout(resolve, ms);
+    });
   }
 }

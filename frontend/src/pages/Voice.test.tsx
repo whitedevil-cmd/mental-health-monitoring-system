@@ -7,6 +7,7 @@ let voiceHandlers: {
   onTranscriptChange?: (transcript: string) => void;
   onFinalTranscript?: (segment: { id: string; transcript: string; speechFinal: boolean }) => void;
   onUtteranceEnd?: () => void;
+  onStreamInterrupted?: (payload: { transcript: string }) => void;
 } = {};
 
 vi.mock('@/components/layout/AppLayout', () => ({
@@ -116,6 +117,41 @@ vi.mock('@/components/voice/VoiceRecorder', () => ({
   },
 }));
 
+vi.mock('@/components/voice/ConversationPanel', () => ({
+  default: ({
+    utterances,
+    partialTranscript,
+  }: {
+    utterances: Array<{ transcript: string; emotion: string | null; confidence: number | null; status: string }>;
+    partialTranscript: string;
+  }) => (
+    <div>
+      {utterances.map((utterance, index) => (
+        <div key={`${utterance.transcript}-${index}`}>
+          <p>{utterance.transcript}</p>
+          <span>
+            {utterance.status === 'failed'
+              ? 'Emotion unavailable'
+              : utterance.status === 'interrupted'
+                ? 'Stream interrupted'
+                : utterance.status === 'skipped'
+                  ? 'Too short to analyze'
+                  : utterance.status === 'pending'
+                    ? 'Analyzing emotion...'
+                    : utterance.emotion}
+          </span>
+          <span>
+            {utterance.status === 'resolved' && utterance.confidence !== null
+              ? `Confidence: ${Math.round(utterance.confidence * 100)}%`
+              : 'Confidence: --'}
+          </span>
+        </div>
+      ))}
+      {partialTranscript ? <p>{partialTranscript}</p> : null}
+    </div>
+  ),
+}));
+
 vi.mock('@/lib/apiClient', () => ({
   apiClient: {
     analyzeText: (...args: unknown[]) => analyzeTextMock(...args),
@@ -134,7 +170,7 @@ describe('Voice page', () => {
     analyzeTextMock.mockResolvedValue({ emotion: 'calm', confidence: 0.82 });
 
     render(<Voice />);
-    fireEvent.click(screen.getByRole('button', { name: 'Emit final transcript' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Emit final transcript' }));
 
     expect(await screen.findByText('I feel calm.')).toBeInTheDocument();
 
@@ -151,7 +187,7 @@ describe('Voice page', () => {
     analyzeTextMock.mockResolvedValue({ emotion: 'stress', confidence: 0.73 });
 
     render(<Voice />);
-    fireEvent.click(screen.getByRole('button', { name: 'Emit chunked transcript' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Emit chunked transcript' }));
 
     expect(analyzeTextMock).not.toHaveBeenCalled();
 
@@ -172,7 +208,7 @@ describe('Voice page', () => {
     analyzeTextMock.mockResolvedValue({ emotion: 'calm', confidence: 0.77 });
 
     render(<Voice />);
-    fireEvent.click(screen.getByRole('button', { name: 'Emit utterance end' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Emit utterance end' }));
 
     expect(await screen.findByText('I need a moment to breathe')).toBeInTheDocument();
 
@@ -188,7 +224,7 @@ describe('Voice page', () => {
     analyzeTextMock.mockRejectedValue(new Error('backend down'));
 
     render(<Voice />);
-    fireEvent.click(screen.getByRole('button', { name: 'Emit failing transcript' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Emit failing transcript' }));
 
     expect(await screen.findByText('I feel uncertain')).toBeInTheDocument();
 
@@ -199,10 +235,14 @@ describe('Voice page', () => {
 
   it('skips backend analysis for very short filler inputs', async () => {
     render(<Voice />);
-    fireEvent.click(screen.getByRole('button', { name: 'Emit short transcript' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Emit short transcript' }));
 
-    expect(await screen.findByText('ok')).toBeInTheDocument();
-    expect(screen.getByText('Too short to analyze')).toBeInTheDocument();
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+    });
+
+    expect(screen.queryByText('ok')).not.toBeInTheDocument();
+    expect(screen.queryByText('Too short to analyze')).not.toBeInTheDocument();
     expect(analyzeTextMock).not.toHaveBeenCalled();
   });
 
@@ -214,7 +254,7 @@ describe('Voice page', () => {
 
     render(<Voice />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Emit rapid burst' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Emit rapid burst' }));
 
     expect(analyzeTextMock).not.toHaveBeenCalled();
 
@@ -250,7 +290,7 @@ describe('Voice page', () => {
     );
 
     render(<Voice />);
-    fireEvent.click(screen.getByRole('button', { name: 'Emit slow backend transcript' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Emit slow backend transcript' }));
 
     expect(await screen.findByText('I need to think clearly')).toBeInTheDocument();
 
@@ -269,5 +309,233 @@ describe('Voice page', () => {
       },
       { timeout: 2000 },
     );
+  });
+
+  it('holds a short thought through a thinking pause before analyzing', async () => {
+    analyzeTextMock.mockResolvedValue({ emotion: 'sad', confidence: 0.79 });
+
+    render(<Voice />);
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I think');
+      voiceHandlers.onFinalTranscript?.({ id: 'segment-80', transcript: 'I think', speechFinal: true });
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 400));
+    });
+
+    expect(analyzeTextMock).not.toHaveBeenCalled();
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I think I feel sad.');
+      voiceHandlers.onFinalTranscript?.({ id: 'segment-81', transcript: 'I feel sad.', speechFinal: true });
+    });
+
+    expect(await screen.findByText('I think I feel sad.')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(analyzeTextMock).toHaveBeenCalledTimes(1);
+      expect(analyzeTextMock).toHaveBeenCalledWith('I think I feel sad.');
+      expect(screen.getByText('sad')).toBeInTheDocument();
+    });
+  });
+
+  it('splits separate punctuated sentences into separate utterances', async () => {
+    analyzeTextMock
+      .mockResolvedValueOnce({ emotion: 'sad', confidence: 0.71 })
+      .mockResolvedValueOnce({ emotion: 'confused', confidence: 0.68 });
+
+    render(<Voice />);
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I feel sad.');
+      voiceHandlers.onFinalTranscript?.({ id: 'segment-90', transcript: 'I feel sad.', speechFinal: false });
+    });
+
+    expect(await screen.findByText('I feel sad.')).toBeInTheDocument();
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I feel sad. I do not know why.');
+      voiceHandlers.onFinalTranscript?.({ id: 'segment-91', transcript: 'I do not know why.', speechFinal: false });
+    });
+
+    expect(await screen.findByText('I do not know why.')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(analyzeTextMock).toHaveBeenCalledTimes(2);
+      expect(analyzeTextMock).toHaveBeenNthCalledWith(1, 'I feel sad.');
+      expect(analyzeTextMock).toHaveBeenNthCalledWith(2, 'I do not know why.');
+    });
+  });
+
+  it('merges a correction into one utterance instead of analyzing the first phrase alone', async () => {
+    analyzeTextMock.mockResolvedValue({ emotion: 'sad', confidence: 0.74 });
+
+    render(<Voice />);
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I feel happy');
+      voiceHandlers.onFinalTranscript?.({ id: 'segment-100', transcript: 'I feel happy', speechFinal: false });
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+    });
+
+    expect(analyzeTextMock).not.toHaveBeenCalled();
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I feel happy I mean sad.');
+      voiceHandlers.onFinalTranscript?.({ id: 'segment-101', transcript: 'I mean sad.', speechFinal: false });
+    });
+
+    expect(await screen.findByText('I feel happy I mean sad.')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(analyzeTextMock).toHaveBeenCalledTimes(1);
+      expect(analyzeTextMock).toHaveBeenCalledWith('I feel happy I mean sad.');
+    });
+  });
+
+  it('ignores filler pauses and only analyzes the meaningful follow-up', async () => {
+    analyzeTextMock.mockResolvedValue({ emotion: 'tired', confidence: 0.72 });
+
+    render(<Voice />);
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('um');
+      voiceHandlers.onFinalTranscript?.({ id: 'segment-110', transcript: 'um', speechFinal: true });
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+    });
+
+    expect(analyzeTextMock).not.toHaveBeenCalled();
+    expect(screen.queryByText(/^um$/)).not.toBeInTheDocument();
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I feel tired.');
+      voiceHandlers.onFinalTranscript?.({ id: 'segment-111', transcript: 'I feel tired.', speechFinal: true });
+    });
+
+    expect(await screen.findByText('I feel tired.')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(analyzeTextMock).toHaveBeenCalledTimes(1);
+      expect(analyzeTextMock).toHaveBeenCalledWith('I feel tired.');
+      expect(screen.getByText('tired')).toBeInTheDocument();
+    });
+  });
+
+  it('preserves the current draft when the stream disconnects mid-speech', async () => {
+    render(<Voice />);
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I was saying something important');
+      voiceHandlers.onStreamInterrupted?.({ transcript: 'I was saying something important' });
+    });
+
+    expect(await screen.findByText('I was saying something important')).toBeInTheDocument();
+    expect(screen.getByText('Stream interrupted')).toBeInTheDocument();
+    expect(analyzeTextMock).not.toHaveBeenCalled();
+  });
+
+  it('replaces an interrupted draft with the recovered final utterance after reconnect', async () => {
+    analyzeTextMock.mockResolvedValue({ emotion: 'calm', confidence: 0.8 });
+
+    render(<Voice />);
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I was saying something important');
+      voiceHandlers.onStreamInterrupted?.({ transcript: 'I was saying something important' });
+    });
+
+    expect(await screen.findByText('Stream interrupted')).toBeInTheDocument();
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I was saying something important to me.');
+      voiceHandlers.onFinalTranscript?.({
+        id: 'segment-140',
+        transcript: 'I was saying something important to me.',
+        speechFinal: true,
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Stream interrupted')).not.toBeInTheDocument();
+      expect(screen.getByText('I was saying something important to me.')).toBeInTheDocument();
+      expect(screen.getByText('calm')).toBeInTheDocument();
+    });
+  });
+
+  it('ignores delayed analysis responses from an older session after the user restarts', async () => {
+    let resolveOlderResponse: ((value: { emotion: string; confidence: number }) => void) | null = null;
+    analyzeTextMock
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ emotion: string; confidence: number }>((resolve) => {
+            resolveOlderResponse = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({ emotion: 'focused', confidence: 0.76 });
+
+    render(<Voice />);
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I feel overwhelmed.');
+      voiceHandlers.onFinalTranscript?.({ id: 'segment-120', transcript: 'I feel overwhelmed.', speechFinal: true });
+    });
+
+    expect(await screen.findByText('I feel overwhelmed.')).toBeInTheDocument();
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('');
+    });
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I am focused now.');
+      voiceHandlers.onFinalTranscript?.({ id: 'segment-121', transcript: 'I am focused now.', speechFinal: true });
+    });
+
+    expect(await screen.findByText('I am focused now.')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText('focused')).toBeInTheDocument();
+      expect(analyzeTextMock).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      resolveOlderResponse?.({ emotion: 'overwhelmed', confidence: 0.91 });
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText('overwhelmed')).not.toBeInTheDocument();
+    expect(screen.getByText('focused')).toBeInTheDocument();
+  });
+
+  it('fails a dropped analysis request instead of leaving the queue stuck', async () => {
+    vi.useFakeTimers();
+    analyzeTextMock.mockImplementationOnce(() => new Promise(() => undefined));
+
+    render(<Voice />);
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('This will stall.');
+      voiceHandlers.onFinalTranscript?.({ id: 'segment-130', transcript: 'This will stall.', speechFinal: true });
+    });
+
+    expect(screen.getByText('This will stall.')).toBeInTheDocument();
+    expect(screen.getByText('Analyzing emotion...')).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(8_100);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('Emotion unavailable')).toBeInTheDocument();
+    vi.useRealTimers();
   });
 });

@@ -4,6 +4,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Mic, TrendingUp, Heart, Sun } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { preloadRoute } from '@/lib/routePreload';
 
 const mockTrend = [
   { day: 'Mon', calm: 0.7, joy: 0.5, sadness: 0.2 },
@@ -43,7 +44,12 @@ const Dashboard = () => {
             <p className="text-muted-foreground mt-1">Here's how you've been feeling lately</p>
           </div>
           <Button variant="hero" size="lg" asChild>
-            <Link to="/voice" className="gap-2">
+            <Link
+              to="/voice"
+              className="gap-2"
+              onMouseEnter={() => preloadRoute('/voice')}
+              onFocus={() => preloadRoute('/voice')}
+            >
               <Mic className="h-5 w-5" /> Start voice session
             </Link>
           </Button>

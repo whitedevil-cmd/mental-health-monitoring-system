@@ -5,7 +5,7 @@ export interface ConversationUtterance {
   transcript: string;
   emotion: string | null;
   confidence: number | null;
-  status: 'pending' | 'resolved' | 'failed' | 'skipped';
+  status: 'pending' | 'resolved' | 'failed' | 'skipped' | 'interrupted';
 }
 
 interface ConversationPanelProps {
@@ -47,6 +47,8 @@ const ConversationPanel = ({ utterances, partialTranscript }: ConversationPanelP
                   <span className="rounded-full bg-secondary px-3 py-1 text-foreground">
                     {utterance.status === 'failed'
                       ? 'Emotion unavailable'
+                      : utterance.status === 'interrupted'
+                        ? 'Stream interrupted'
                       : utterance.status === 'skipped'
                         ? 'Too short to analyze'
                       : utterance.status === 'pending'

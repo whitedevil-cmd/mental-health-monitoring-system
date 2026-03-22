@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
 import VoiceRecorder from "@/components/voice/VoiceRecorder";
 
 class FakeAnalyser {
@@ -26,8 +26,15 @@ class FakeScriptProcessor {
 }
 
 class FakeAudioContext {
+  static instances: FakeAudioContext[] = [];
   sampleRate = 16000;
   destination = {};
+  state: AudioContextState = 'running';
+  resume = vi.fn().mockResolvedValue(undefined);
+
+  constructor() {
+    FakeAudioContext.instances.push(this);
+  }
 
   createMediaStreamSource() {
     return { connect: () => {}, disconnect: () => {} };
@@ -49,14 +56,16 @@ class FakeWebSocket {
   static OPEN = 1;
   static CLOSING = 2;
   static CLOSED = 3;
+  static instances: FakeWebSocket[] = [];
 
   onopen: (() => void) | null = null;
-  onclose: (() => void) | null = null;
+  onclose: ((event: { code: number }) => void) | null = null;
   onerror: (() => void) | null = null;
   onmessage: ((event: { data: string }) => void) | null = null;
   readyState = FakeWebSocket.OPEN;
 
   constructor(public url: string, public protocols?: string | string[]) {
+    FakeWebSocket.instances.push(this);
     queueMicrotask(() => {
       this.onopen?.();
     });
@@ -64,9 +73,17 @@ class FakeWebSocket {
 
   send() {}
 
-  close() {
+  emitMessage(data: string) {
+    this.onmessage?.({ data });
+  }
+
+  emitClose(code = 1000) {
     this.readyState = FakeWebSocket.CLOSED;
-    this.onclose?.();
+    this.onclose?.({ code });
+  }
+
+  close(code = 1000) {
+    this.emitClose(code);
   }
 }
 
@@ -87,6 +104,8 @@ describe("VoiceRecorder", () => {
 
     globalThis.AudioContext = FakeAudioContext as unknown as typeof AudioContext;
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+    FakeAudioContext.instances = [];
+    FakeWebSocket.instances = [];
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({ token: "temporary-deepgram-token" }),
@@ -126,5 +145,79 @@ describe("VoiceRecorder", () => {
         autoGainControl: true,
       },
     });
+  });
+
+  it("returns to idle and preserves the latest transcript on unexpected socket close", async () => {
+    const onTranscriptChange = vi.fn();
+    const onStreamInterrupted = vi.fn();
+
+    render(
+      <VoiceRecorder
+        onTranscriptChange={onTranscriptChange}
+        onStreamInterrupted={onStreamInterrupted}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button"));
+    expect(await screen.findByText(/Streaming live transcript/i)).toBeInTheDocument();
+
+    const socket = FakeWebSocket.instances[0];
+    act(() => {
+      socket.emitMessage(
+        JSON.stringify({
+          channel: { alternatives: [{ transcript: "I was speaking" }] },
+          is_final: false,
+        }),
+      );
+
+      socket.emitClose(1011);
+    });
+
+    expect(await screen.findByText("Tap to start speaking")).toBeInTheDocument();
+    expect(onTranscriptChange).toHaveBeenCalledWith("I was speaking");
+    expect(onStreamInterrupted).toHaveBeenCalledWith({ transcript: "I was speaking" });
+  });
+
+  it("reconnects after an unexpected socket drop without interrupting the UI", async () => {
+    const onStreamInterrupted = vi.fn();
+
+    render(<VoiceRecorder onStreamInterrupted={onStreamInterrupted} />);
+
+    fireEvent.click(screen.getByRole("button"));
+    expect(await screen.findByText(/Streaming live transcript/i)).toBeInTheDocument();
+
+    act(() => {
+      FakeWebSocket.instances[0]?.emitClose(1006);
+    });
+
+    await screen.findByText(/Streaming live transcript/i);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    });
+
+    expect(FakeWebSocket.instances.length).toBeGreaterThan(1);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(onStreamInterrupted).not.toHaveBeenCalled();
+    expect(screen.getByText(/Streaming live transcript/i)).toBeInTheDocument();
+  });
+
+  it("resumes the audio context when the tab becomes visible again", async () => {
+    render(<VoiceRecorder />);
+
+    fireEvent.click(screen.getByRole("button"));
+    expect(await screen.findByText(/Streaming live transcript/i)).toBeInTheDocument();
+
+    const audioContext = FakeAudioContext.instances[0];
+    audioContext.state = "suspended";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(audioContext.resume).toHaveBeenCalled();
   });
 });

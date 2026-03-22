@@ -10,11 +10,18 @@ interface VoiceRecorderProps {
   onTranscriptChange?: (transcript: string) => void;
   onFinalTranscript?: (segment: { id: string; transcript: string; speechFinal: boolean }) => void;
   onUtteranceEnd?: () => void;
+  onStreamInterrupted?: (payload: { transcript: string }) => void;
 }
 
 type RecorderStatus = 'idle' | 'connecting' | 'recording' | 'processing';
 
-const VoiceRecorder = ({ onResult, onTranscriptChange, onFinalTranscript, onUtteranceEnd }: VoiceRecorderProps) => {
+const VoiceRecorder = ({
+  onResult,
+  onTranscriptChange,
+  onFinalTranscript,
+  onUtteranceEnd,
+  onStreamInterrupted,
+}: VoiceRecorderProps) => {
   const [status, setStatus] = useState<RecorderStatus>('idle');
   const [duration, setDuration] = useState(0);
   const [analyzerData, setAnalyzerData] = useState<number[]>(new Array(32).fill(0));
@@ -28,6 +35,7 @@ const VoiceRecorder = ({ onResult, onTranscriptChange, onFinalTranscript, onUtte
   const deepgramRef = useRef<DeepgramLiveClient | null>(null);
   const disconnectTimerRef = useRef<number | null>(null);
   const latestTranscriptRef = useRef('');
+  const streamGenerationRef = useRef(0);
 
   const cleanupAudioGraph = useCallback(async () => {
     if (disconnectTimerRef.current) {
@@ -63,6 +71,10 @@ const VoiceRecorder = ({ onResult, onTranscriptChange, onFinalTranscript, onUtte
     onTranscriptChange?.(transcript);
   }, [onTranscriptChange]);
 
+  const isActiveStream = useCallback((generation: number) => {
+    return streamGenerationRef.current === generation;
+  }, []);
+
   const visualize = useCallback(() => {
     if (!analyzerRef.current) return;
     const data = new Uint8Array(analyzerRef.current.frequencyBinCount);
@@ -77,6 +89,7 @@ const VoiceRecorder = ({ onResult, onTranscriptChange, onFinalTranscript, onUtte
       return;
     }
 
+    const activeGeneration = streamGenerationRef.current;
     setStatus('processing');
     clearInterval(timerRef.current);
 
@@ -87,7 +100,9 @@ const VoiceRecorder = ({ onResult, onTranscriptChange, onFinalTranscript, onUtte
 
     deepgramRef.current?.finalize();
     disconnectTimerRef.current = window.setTimeout(() => {
-      deepgramRef.current?.disconnect();
+      if (isActiveStream(activeGeneration)) {
+        deepgramRef.current?.disconnect();
+      }
     }, 600);
 
     await new Promise((resolve) => window.setTimeout(resolve, 700));
@@ -101,13 +116,19 @@ const VoiceRecorder = ({ onResult, onTranscriptChange, onFinalTranscript, onUtte
     });
 
     setStatus('idle');
-  }, [cleanupAudioGraph, onResult, status]);
+  }, [cleanupAudioGraph, isActiveStream, onResult, status]);
 
   const startRecording = useCallback(async () => {
+    const generation = streamGenerationRef.current + 1;
+    streamGenerationRef.current = generation;
+
     try {
       updateTranscript('');
       onResult?.({ transcript: '', emotions: [], aiResponse: '' });
       setStatus('connecting');
+
+      deepgramRef.current?.disconnect();
+      deepgramRef.current = null;
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -137,16 +158,52 @@ const VoiceRecorder = ({ onResult, onTranscriptChange, onFinalTranscript, onUtte
 
       const deepgram = new DeepgramLiveClient({
         sampleRate: audioContext.sampleRate,
-        onTranscript: updateTranscript,
-        onFinalTranscript,
-        onUtteranceEnd,
+        onTranscript: (transcript) => {
+          if (!isActiveStream(generation)) {
+            return;
+          }
+
+          updateTranscript(transcript);
+        },
+        onFinalTranscript: (segment) => {
+          if (!isActiveStream(generation)) {
+            return;
+          }
+
+          onFinalTranscript?.(segment);
+        },
+        onUtteranceEnd: () => {
+          if (!isActiveStream(generation)) {
+            return;
+          }
+
+          onUtteranceEnd?.();
+        },
         onOpen: () => {
+          if (!isActiveStream(generation)) {
+            deepgram.disconnect();
+            return;
+          }
+
           setStatus('recording');
         },
-        onClose: () => {
+        onClose: ({ manual, wasConnected }) => {
+          if (!isActiveStream(generation)) {
+            return;
+          }
+
           deepgramRef.current = null;
+          if (!manual && wasConnected) {
+            setStatus('idle');
+            void cleanupAudioGraph();
+            onStreamInterrupted?.({ transcript: latestTranscriptRef.current });
+          }
         },
         onError: (message) => {
+          if (!isActiveStream(generation)) {
+            return;
+          }
+
           console.error(message);
         },
       });
@@ -166,6 +223,10 @@ const VoiceRecorder = ({ onResult, onTranscriptChange, onFinalTranscript, onUtte
       timerRef.current = window.setInterval(() => setDuration((value) => value + 1), 1000);
       visualize();
     } catch (err) {
+      if (!isActiveStream(generation)) {
+        return;
+      }
+
       console.error('Microphone or Deepgram error:', err);
       deepgramRef.current?.disconnect();
       deepgramRef.current = null;
@@ -177,7 +238,17 @@ const VoiceRecorder = ({ onResult, onTranscriptChange, onFinalTranscript, onUtte
         variant: 'destructive',
       });
     }
-  }, [cleanupAudioGraph, onFinalTranscript, onResult, onUtteranceEnd, status, updateTranscript, visualize]);
+  }, [
+    cleanupAudioGraph,
+    isActiveStream,
+    onFinalTranscript,
+    onResult,
+    onStreamInterrupted,
+    onUtteranceEnd,
+    status,
+    updateTranscript,
+    visualize,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -185,6 +256,21 @@ const VoiceRecorder = ({ onResult, onTranscriptChange, onFinalTranscript, onUtte
       void cleanupAudioGraph();
     };
   }, [cleanupAudioGraph]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+
+      void audioContextRef.current?.resume?.().catch(() => undefined);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const formatTime = (seconds: number) =>
     `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
