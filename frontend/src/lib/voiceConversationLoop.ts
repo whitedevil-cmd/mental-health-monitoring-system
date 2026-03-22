@@ -15,6 +15,7 @@ import {
   updateUserMemoryStore,
   type UserMemoryStore,
 } from '@/lib/memoryPersonalization';
+import { apiClient } from '@/lib/apiClient';
 
 type EmotionResult = {
   emotion: string | null;
@@ -85,6 +86,19 @@ export interface LlmClient {
 
 export interface TtsClient {
   synthesize(text: string, signal?: AbortSignal): Promise<ArrayBuffer>;
+}
+
+export interface SessionPersistenceClient {
+  saveSession(payload: {
+    user_id: string;
+    text: string;
+    emotion: string;
+    confidence: number | null;
+    timestamp?: string;
+  }): Promise<{
+    id?: number;
+    created_at?: string;
+  }>;
 }
 
 type AudioContextFactory = () => AudioContext;
@@ -420,10 +434,11 @@ class AudioPlaybackQueue {
 
 export class RealTimeVoiceAssistantLoop {
   private readonly sessionId: string;
-  private readonly userId: string;
+  private readonly userId: string | null;
   private readonly emotionClient: EmotionClient;
   private readonly llmClient: LlmClient;
   private readonly ttsClient: TtsClient;
+  private readonly persistenceClient: SessionPersistenceClient;
   private readonly callbacks: LoopUiCallbacks;
   private readonly audioQueue: AudioPlaybackQueue;
   private readonly now: NowProvider;
@@ -436,6 +451,7 @@ export class RealTimeVoiceAssistantLoop {
   };
   private memoryStore: UserMemoryStore;
   private storedUserTurnIds = new Set<string>();
+  private savedUserTurnIds = new Set<string>();
   private activeSpeechStartedAt: number | null = null;
   private pendingLatencyByGeneration = new Map<number, PendingLatencyTrace>();
   private ttsCache = new Map<string, ArrayBuffer>();
@@ -449,19 +465,21 @@ export class RealTimeVoiceAssistantLoop {
     emotionClient: EmotionClient;
     llmClient: LlmClient;
     ttsClient: TtsClient;
+    persistenceClient?: SessionPersistenceClient;
     callbacks: LoopUiCallbacks;
     audioContextFactory?: AudioContextFactory;
     nowProvider?: NowProvider;
   }) {
     this.sessionId = args.sessionId;
-    this.userId = args.userId ?? args.sessionId;
+    this.userId = args.userId ?? null;
     this.emotionClient = args.emotionClient;
     this.llmClient = args.llmClient;
     this.ttsClient = args.ttsClient;
+    this.persistenceClient = args.persistenceClient ?? apiClient;
     this.callbacks = args.callbacks;
     this.now = args.nowProvider ?? (() => performance.now());
     this.memoryStore = resetUserMemoryStore(
-      this.userId,
+      this.userId ?? this.sessionId,
       this.sessionId,
       new Date().toISOString(),
     );
@@ -552,6 +570,13 @@ export class RealTimeVoiceAssistantLoop {
             confidence: emotion.confidence,
           });
         }
+        void this.saveSessionForTurn({
+          turnId: userTurn.id,
+          text: userTurn.text,
+          emotion: emotion.emotion,
+          confidence: emotion.confidence,
+          timestamp: userTurn.timestamp,
+        });
         return emotion;
       })
       .catch(() => null);
@@ -849,6 +874,39 @@ export class RealTimeVoiceAssistantLoop {
       },
     });
     this.storedUserTurnIds.add(turnId);
+  }
+
+  private async saveSessionForTurn(args: {
+    turnId: string;
+    text: string;
+    emotion: string | null;
+    confidence: number | null;
+    timestamp?: string;
+  }): Promise<void> {
+    if (!this.userId || !args.emotion || this.savedUserTurnIds.has(args.turnId)) {
+      return;
+    }
+
+    const payload = {
+      user_id: this.userId,
+      text: args.text,
+      emotion: args.emotion,
+      confidence: args.confidence,
+      timestamp: args.timestamp,
+    };
+
+    this.savedUserTurnIds.add(args.turnId);
+    console.info('Saving session...');
+    console.info('Session payload:', payload);
+
+    try {
+      const response = await this.persistenceClient.saveSession(payload);
+      console.info('Save session response status:', 201);
+      console.info('Save session response:', response);
+    } catch (error) {
+      this.savedUserTurnIds.delete(args.turnId);
+      console.error('Save session failed:', error);
+    }
   }
 
   private async consumeLlmStream(

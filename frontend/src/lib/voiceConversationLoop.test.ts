@@ -4,6 +4,7 @@ import {
   type EmotionClient,
   type LlmClient,
   type LoopUiCallbacks,
+  type SessionPersistenceClient,
   type TtsClient,
   type VoiceLatencyBreakdown,
 } from '@/lib/voiceConversationLoop';
@@ -95,6 +96,15 @@ const createTokenStream = async function* (tokens: string[], pauseMs = 0): Async
     yield token;
   }
 };
+
+const createPersistenceClient = (): SessionPersistenceClient & {
+  saveSession: ReturnType<typeof vi.fn>;
+} => ({
+  saveSession: vi.fn().mockResolvedValue({
+    id: 1,
+    created_at: '2026-03-22T12:00:00Z',
+  }),
+});
 
 describe('voiceConversationLoop', () => {
   it('runs the full user -> emotion -> llm -> tts loop and appends assistant output', async () => {
@@ -291,6 +301,7 @@ describe('voiceConversationLoop', () => {
     const ttsClient: TtsClient = {
       synthesize: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
     };
+    const persistenceClient = createPersistenceClient();
 
     const loop = new RealTimeVoiceAssistantLoop({
       sessionId: 'session-5',
@@ -298,6 +309,7 @@ describe('voiceConversationLoop', () => {
       emotionClient,
       llmClient,
       ttsClient,
+      persistenceClient,
       callbacks,
       audioContextFactory: () => new FakeAudioContext() as unknown as AudioContext,
     });
@@ -319,6 +331,119 @@ describe('voiceConversationLoop', () => {
     expect(secondCall?.[1]?.content).toContain('"memory_context"');
     expect(secondCall?.[1]?.content).toContain('"recurring_topics":["work"]');
     expect(secondCall?.[1]?.content).toContain('"support_style":"gentle_guidance"');
+    expect(persistenceClient.saveSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('saves a completed user turn exactly once after final transcript emotion analysis completes', async () => {
+    const callbacks = createCallbacks();
+    const emotionClient: EmotionClient = {
+      analyzeText: vi.fn().mockResolvedValue({ emotion: 'sad', confidence: 0.84 }),
+    };
+    const llmClient: LlmClient = {
+      streamResponse: vi.fn().mockResolvedValue(createTokenStream(['I hear you.'])),
+    };
+    const ttsClient: TtsClient = {
+      synthesize: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    };
+    const persistenceClient = createPersistenceClient();
+
+    const loop = new RealTimeVoiceAssistantLoop({
+      sessionId: 'session-save-1',
+      userId: 'user-42',
+      emotionClient,
+      llmClient,
+      ttsClient,
+      persistenceClient,
+      callbacks,
+      audioContextFactory: () => new FakeAudioContext() as unknown as AudioContext,
+    });
+
+    await loop.handleFinalizedUtterance({
+      id: 'user-save-1',
+      text: 'I feel low today.',
+      timestamp: '2026-03-22T12:00:00Z',
+    });
+
+    expect(persistenceClient.saveSession).toHaveBeenCalledTimes(1);
+    expect(persistenceClient.saveSession).toHaveBeenCalledWith({
+      user_id: 'user-42',
+      text: 'I feel low today.',
+      emotion: 'sad',
+      confidence: 0.84,
+      timestamp: '2026-03-22T12:00:00Z',
+    });
+  });
+
+  it('does not save duplicate rows for the same finalized turn when a stale emotion result resolves twice', async () => {
+    const callbacks = createCallbacks();
+    const emotionResult = { emotion: 'anxious', confidence: 0.76 };
+    const emotionClient: EmotionClient = {
+      analyzeText: vi.fn().mockResolvedValue(emotionResult),
+    };
+    const llmClient: LlmClient = {
+      streamResponse: vi.fn().mockResolvedValue(createTokenStream(['Let us take this one step at a time.'])),
+    };
+    const ttsClient: TtsClient = {
+      synthesize: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    };
+    const persistenceClient = createPersistenceClient();
+
+    const loop = new RealTimeVoiceAssistantLoop({
+      sessionId: 'session-save-2',
+      userId: 'user-84',
+      emotionClient,
+      llmClient,
+      ttsClient,
+      persistenceClient,
+      callbacks,
+      audioContextFactory: () => new FakeAudioContext() as unknown as AudioContext,
+    });
+
+    await loop.handleFinalizedUtterance({
+      id: 'user-save-2',
+      text: 'I feel overwhelmed.',
+      timestamp: '2026-03-22T12:00:00Z',
+    });
+
+    await loop.handleFinalizedUtterance({
+      id: 'user-save-2',
+      text: 'I feel overwhelmed.',
+      timestamp: '2026-03-22T12:00:00Z',
+    });
+
+    expect(persistenceClient.saveSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips persistence when no authenticated user id is available', async () => {
+    const callbacks = createCallbacks();
+    const emotionClient: EmotionClient = {
+      analyzeText: vi.fn().mockResolvedValue({ emotion: 'sad', confidence: 0.8 }),
+    };
+    const llmClient: LlmClient = {
+      streamResponse: vi.fn().mockResolvedValue(createTokenStream(['I am here with you.'])),
+    };
+    const ttsClient: TtsClient = {
+      synthesize: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    };
+    const persistenceClient = createPersistenceClient();
+
+    const loop = new RealTimeVoiceAssistantLoop({
+      sessionId: 'session-save-3',
+      emotionClient,
+      llmClient,
+      ttsClient,
+      persistenceClient,
+      callbacks,
+      audioContextFactory: () => new FakeAudioContext() as unknown as AudioContext,
+    });
+
+    await loop.handleFinalizedUtterance({
+      id: 'user-save-3',
+      text: 'I feel off today.',
+      timestamp: '2026-03-22T12:00:00Z',
+    });
+
+    expect(persistenceClient.saveSession).not.toHaveBeenCalled();
   });
 
   it('measures end-to-end latency stages across speech, emotion, llm, tts, and playback', async () => {

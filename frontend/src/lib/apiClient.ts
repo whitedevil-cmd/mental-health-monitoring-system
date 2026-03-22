@@ -37,6 +37,24 @@ export interface AnalyzeTextResponse {
   confidence: number;
 }
 
+export interface SaveSessionPayload {
+  user_id: string;
+  text: string;
+  emotion: string;
+  confidence: number | null;
+  timestamp?: string;
+}
+
+export interface SaveSessionResponse {
+  id: number;
+  user_id: string;
+  audio_id: string | null;
+  emotion_label: string;
+  confidence: number | null;
+  transcript: string | null;
+  created_at: string;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -92,6 +110,18 @@ class ApiClient {
     return this.request<AnalyzeTextResponse>('/analyze-text', {
       method: 'POST',
       body: JSON.stringify({ text }),
+    });
+  }
+
+  async saveSession(payload: SaveSessionPayload): Promise<SaveSessionResponse> {
+    return this.request<SaveSessionResponse>('/api/v1/emotions/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: payload.user_id,
+        emotion_label: payload.emotion,
+        confidence: payload.confidence,
+        transcript: payload.text,
+      }),
     });
   }
 }
