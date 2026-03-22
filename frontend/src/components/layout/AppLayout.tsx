@@ -5,6 +5,7 @@ import {
   Mic,
   BarChart3,
   MessageSquare,
+  Briefcase,
   LogOut,
   Menu,
   X,
@@ -21,6 +22,7 @@ const desktopNavItems = [
   { to: '/insights', label: 'Insights', icon: BarChart3 },
   { to: '/history', label: 'History', icon: MessageSquare },
   { to: '/profile', label: 'Profile', icon: User },
+  { to: '/portfolio', label: "Founder's Portfolio", icon: Briefcase },
 ];
 
 const mobileNavItems = [
@@ -28,6 +30,7 @@ const mobileNavItems = [
   { to: '/voice', label: 'Voice Session', icon: Mic },
   { to: '/insights', label: 'Insights', icon: BarChart3 },
   { to: '/profile', label: 'Profile', icon: User },
+  { to: '/portfolio', label: "Founder's Portfolio", shortLabel: 'Portfolio', icon: Briefcase },
 ];
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -191,7 +194,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             }
           >
             <item.icon className="h-5 w-5" />
-            <span>{item.label}</span>
+            <span>{item.shortLabel ?? item.label}</span>
           </NavLink>
         ))}
       </nav>
