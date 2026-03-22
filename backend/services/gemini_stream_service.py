@@ -1,13 +1,13 @@
-"""Streaming Gemini text service for realtime assistant responses."""
+"""Streaming Gemini text service using the official Google GenAI SDK."""
 
 from __future__ import annotations
 
-import json
 import logging
 from functools import lru_cache
 from typing import AsyncIterator
 
-import httpx
+from google import genai
+from google.genai import types
 
 from backend.utils.config import get_settings
 from backend.utils.errors import ServiceError
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class GeminiStreamService:
-    """Proxy realtime text generation through Gemini's streaming API."""
+    """Proxy realtime text generation through the official Gemini SDK."""
 
     def __init__(self) -> None:
         self._settings = get_settings()
@@ -30,81 +30,44 @@ class GeminiStreamService:
 
     @staticmethod
     @lru_cache(maxsize=1)
-    def _get_client() -> httpx.AsyncClient:
-        return httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0))
+    def _get_client(api_key: str) -> genai.Client:
+        return genai.Client(api_key=api_key)
 
     @staticmethod
     def _extract_system_instruction(messages: list[dict[str, str]]) -> str | None:
-        instructions = [message['content'].strip() for message in messages if message['role'] == 'system' and message['content'].strip()]
+        instructions = [
+            message["content"].strip()
+            for message in messages
+            if message["role"] == "system" and message["content"].strip()
+        ]
         if not instructions:
             return None
         return "\n\n".join(instructions)
 
     @staticmethod
-    def _build_contents(messages: list[dict[str, str]]) -> list[dict[str, object]]:
-        conversation: list[dict[str, object]] = []
+    def _build_contents(messages: list[dict[str, str]]) -> list[types.Content]:
+        contents: list[types.Content] = []
 
         for message in messages:
-            if message['role'] == 'system':
+            if message["role"] == "system":
                 continue
 
-            role = 'model' if message['role'] == 'assistant' else 'user'
-            conversation.append(
-                {
-                    'role': role,
-                    'parts': [{'text': message['content']}],
-                }
+            role = "model" if message["role"] == "assistant" else "user"
+            contents.append(
+                types.Content(
+                    role=role,
+                    parts=[types.Part.from_text(text=message["content"])],
+                )
             )
 
-        if not conversation:
+        if not contents:
             raise ServiceError(
-                'Gemini request missing conversation content.',
-                details='At least one user or assistant message is required.',
+                "Gemini request missing conversation content.",
+                details="At least one user or assistant message is required.",
                 status_code=400,
             )
 
-        return conversation
-
-    @staticmethod
-    def _extract_text_from_chunk(payload: object) -> str:
-        if isinstance(payload, list):
-            return ''.join(GeminiStreamService._extract_text_from_chunk(item) for item in payload)
-
-        if not isinstance(payload, dict):
-            return ''
-
-        texts: list[str] = []
-        candidates = payload.get('candidates') or []
-        for candidate in candidates:
-            if not isinstance(candidate, dict):
-                continue
-            content = candidate.get('content')
-            if not isinstance(content, dict):
-                continue
-            parts = content.get('parts') or []
-            for part in parts:
-                if isinstance(part, dict):
-                    text = part.get('text')
-                    if isinstance(text, str) and text:
-                        texts.append(text)
-        return ''.join(texts)
-
-    @staticmethod
-    def _parse_sse_event(event_data_lines: list[str]) -> str:
-        if not event_data_lines:
-            return ''
-
-        raw_json = '\n'.join(event_data_lines).strip()
-        if not raw_json:
-            return ''
-
-        try:
-            chunk_payload = json.loads(raw_json)
-        except json.JSONDecodeError:
-            logger.warning('Skipping malformed Gemini stream chunk: %s', raw_json)
-            return ''
-
-        return GeminiStreamService._extract_text_from_chunk(chunk_payload)
+        return contents
 
     async def stream_chat(
         self,
@@ -112,74 +75,31 @@ class GeminiStreamService:
         messages: list[dict[str, str]],
         user_id: str | None = None,
     ) -> AsyncIterator[str]:
-        del user_id  # Gemini REST does not support a user field on this endpoint.
+        del user_id
 
-        payload: dict[str, object] = {
-            'contents': self._build_contents(messages),
-            'generationConfig': {
-                'temperature': 0.7,
-                'maxOutputTokens': 220,
-            },
-        }
-
-        system_instruction = self._extract_system_instruction(messages)
-        if system_instruction:
-            payload['systemInstruction'] = {
-                'parts': [{'text': system_instruction}],
-            }
-
-        url = (
-            f"{self._settings.GEMINI_API_BASE_URL}/models/"
-            f"{self._settings.GEMINI_MODEL}:streamGenerateContent?alt=sse"
+        config = types.GenerateContentConfig(
+            temperature=0.7,
+            max_output_tokens=220,
+            system_instruction=self._extract_system_instruction(messages),
         )
 
-        client = self._get_client()
+        client = self._get_client(self._api_key)
 
         try:
-            async with client.stream(
-                'POST',
-                url,
-                headers={
-                    'x-goog-api-key': self._api_key,
-                    'Content-Type': 'application/json',
-                },
-                json=payload,
-            ) as response:
-                if response.status_code >= 400:
-                    error_body = await response.aread()
-                    details = error_body.decode('utf-8', errors='ignore')
-                    logger.error('Gemini streaming request failed: %s', details)
-                    raise ServiceError(
-                        'Gemini streaming request failed.',
-                        details=details,
-                        status_code=502,
-                    )
+            stream = await client.aio.models.generate_content_stream(
+                model=self._settings.GEMINI_MODEL,
+                contents=self._build_contents(messages),
+                config=config,
+            )
 
-                event_data_lines: list[str] = []
-
-                async for line in response.aiter_lines():
-                    if line == '':
-                        text = self._parse_sse_event(event_data_lines)
-                        if text:
-                            yield text
-                        event_data_lines = []
-                        continue
-
-                    if line.startswith(':'):
-                        continue
-
-                    if not line.startswith('data:'):
-                        continue
-
-                    event_data_lines.append(line[5:].lstrip())
-
-                text = self._parse_sse_event(event_data_lines)
+            async for chunk in stream:
+                text = getattr(chunk, "text", None)
                 if text:
                     yield text
-        except httpx.HTTPError as exc:
-            logger.exception('Gemini streaming request failed: %s', exc)
+        except Exception as exc:  # pragma: no cover - provider failures are environment-specific
+            logger.exception("Gemini streaming request failed: %s", exc)
             raise ServiceError(
-                'Gemini streaming request failed.',
+                "Gemini streaming request failed.",
                 details=str(exc),
                 status_code=502,
             ) from exc
