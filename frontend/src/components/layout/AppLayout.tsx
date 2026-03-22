@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { preloadRoute } from '@/lib/routePreload';
 import { useEffect, useState } from 'react';
+import BackButton from '@/components/navigation/BackButton';
 
 const desktopNavItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -174,6 +175,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
           transition={{ duration: 0.3 }}
           className="p-4 md:p-8 max-w-6xl mx-auto pb-24 md:pb-8"
         >
+          <BackButton fallbackTo="/dashboard" className="mb-4" />
           {children}
         </motion.div>
       </main>

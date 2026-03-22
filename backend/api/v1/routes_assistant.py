@@ -1,4 +1,4 @@
-"""Realtime assistant routes for streaming Groq text and ElevenLabs TTS."""
+"""Realtime assistant routes for streaming Gemini text and ElevenLabs TTS."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from backend.services.elevenlabs_tts_service import ElevenLabsTtsService
-from backend.services.groq_stream_service import GroqStreamService
+from backend.services.gemini_stream_service import GeminiStreamService
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
@@ -31,8 +31,8 @@ class TtsSynthesizeRequest(BaseModel):
     next_text: str | None = None
 
 
-def get_groq_stream_service() -> GroqStreamService:
-    return GroqStreamService()
+def get_gemini_stream_service() -> GeminiStreamService:
+    return GeminiStreamService()
 
 
 def get_tts_service() -> ElevenLabsTtsService:
@@ -45,7 +45,7 @@ def get_tts_service() -> ElevenLabsTtsService:
 )
 async def stream_assistant_response(
     payload: AssistantStreamRequest,
-    service: GroqStreamService = Depends(get_groq_stream_service),
+    service: GeminiStreamService = Depends(get_gemini_stream_service),
 ) -> StreamingResponse:
     async def event_stream() -> AsyncIterator[bytes]:
         async for token in service.stream_chat(

@@ -95,9 +95,11 @@ describe('conversationAi', () => {
     expect(messages).toHaveLength(2);
     expect(messages[0].content).toContain('AI mental health support companion');
     expect(messages[0].content).toContain('help the user feel heard, not managed');
+    expect(messages[0].content).toContain('avoid formulaic openings such as "it sounds like"');
     expect(messages[1].content).toContain('"risk_level":"moderate"');
     expect(messages[1].content).toContain('"ask_follow_up_question":true');
     expect(messages[1].content).toContain('"response_style":"reflective"');
+    expect(messages[1].content).toContain('"avoid_phrases":["it sounds like","that sounds like","it seems like","i understand"]');
     expect(messages[1].content).toContain('"memory_context"');
     expect(messages[1].content).toContain('"recurring_topics":["work"]');
   });
@@ -177,9 +179,46 @@ describe('conversationAi', () => {
     expect(result.text.split(/[.!?]/).filter(Boolean).length).toBeLessThanOrEqual(4);
   });
 
+  it('softens repetitive therapist-style openers in the first sentence', () => {
+    const input = {
+      current_input: {
+        text: 'I have been carrying a lot lately.',
+        emotion: 'sad',
+        confidence: 0.84,
+      },
+      context_window: [],
+      emotion_summary: {
+        latest: 'sad',
+        dominant_recent: 'sad',
+        trend: 'stable' as const,
+      },
+      intent_signals: {
+        needs_support: true,
+        uncertainty: false,
+        distress: false,
+        reflection: true,
+        repetitive_thoughts: false,
+      },
+      conversation_state: {
+        turn_count: 1,
+        recent_question_asked: false,
+        guidance_recently_given: false,
+      },
+    };
+
+    const response = postProcessTherapistResponse(
+      'It sounds like you are exhausted and stretched thin. What feels most pressing right now?',
+      input,
+    );
+
+    expect(response.startsWith("You're exhausted and stretched thin.")).toBe(true);
+    expect(response.toLowerCase()).not.toContain('it sounds like');
+  });
+
   it('keeps the system prompt stable and plain-text oriented', () => {
     expect(THERAPIST_SYSTEM_PROMPT).toContain('return plain text only');
     expect(THERAPIST_SYSTEM_PROMPT).toContain('never diagnose, label disorders, or claim certainty about mental health conditions');
     expect(THERAPIST_SYSTEM_PROMPT).toContain('help the user feel heard, not managed');
+    expect(THERAPIST_SYSTEM_PROMPT).toContain('do not default to therapist cliches or canned empathy lines');
   });
 });

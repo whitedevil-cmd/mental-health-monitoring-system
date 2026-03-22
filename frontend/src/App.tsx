@@ -18,6 +18,9 @@ const Voice = lazyWithPreload(() => import('./pages/Voice'));
 const Insights = lazyWithPreload(() => import('./pages/Insights'));
 const History = lazyWithPreload(() => import('./pages/History'));
 const Profile = lazyWithPreload(() => import('./pages/Profile'));
+const EditProfile = lazyWithPreload(() => import('./pages/EditProfile'));
+const Preferences = lazyWithPreload(() => import('./pages/Preferences'));
+const ChangePassword = lazyWithPreload(() => import('./pages/ChangePassword'));
 const Portfolio = lazyWithPreload(() => import('./pages/Founder'));
 const Support = lazyWithPreload(() => import('./pages/Support'));
 const Privacy = lazyWithPreload(() => import('./pages/Privacy'));
@@ -50,6 +53,9 @@ const App = () => (
               <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/edit-profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
+              <Route path="/preferences" element={<ProtectedRoute><Preferences /></ProtectedRoute>} />
+              <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
               <Route path="/portfolio" element={<Portfolio />} />
               <Route path="/founder" element={<Portfolio />} />
               <Route path="/support" element={<Support />} />

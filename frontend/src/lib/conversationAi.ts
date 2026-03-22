@@ -243,6 +243,8 @@ Core approach:
 Therapeutic style:
 - begin with brief validation, reflection, or gentle emotional naming when appropriate
 - mirror the likely emotional experience without parroting the user's words
+- vary the opening style so replies do not keep starting the same way
+- avoid formulaic openings such as "it sounds like", "that sounds like", "it seems like", or "I understand"
 - if the user sounds sad, anxious, overwhelmed, ashamed, or stuck, slow down and respond with softness
 - if the user sounds reflective, meet them in reflection before offering a next step
 - if the user sounds neutral, keep the tone lighter and conversational
@@ -256,6 +258,7 @@ Conversation rules:
 - never ask multiple questions in one response
 - do not give long lists or multi-step plans unless safety requires it
 - do not sound robotic, overly polished, preachy, or overly cheerful
+- do not default to therapist cliches or canned empathy lines
 - avoid filler phrases such as "I understand", "as an AI", or "everything happens for a reason"
 - avoid repeating exact user wording unless it clearly improves empathy
 - do not overuse emotion labels
@@ -342,6 +345,12 @@ export const buildTherapistMessages = <TInput extends MemoryAwareConversationInp
             : input.current_input.emotion === 'sad'
               ? 'warm_and_validating'
               : 'natural_and_supportive',
+      avoid_phrases: [
+        'it sounds like',
+        'that sounds like',
+        'it seems like',
+        'i understand',
+      ],
     },
   };
 
@@ -374,7 +383,21 @@ export const postProcessTherapistResponse = (
 
   const sentences =
     cleaned.match(/[^.!?]+[.!?]?/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [];
-  const limited = sentences.slice(0, risk === 'high' ? 3 : 4).join(' ').trim();
+  const softenedSentences = sentences.map((sentence, index) => {
+    if (index !== 0) {
+      return sentence;
+    }
+
+    return sentence
+      .replace(/^it sounds like you(?: are|'re)\s+/i, "You're ")
+      .replace(/^it seems like you(?: are|'re)\s+/i, "You're ")
+      .replace(/^it feels like you(?: are|'re)\s+/i, "You're ")
+      .replace(/^that sounds like\s+/i, 'That feels ')
+      .replace(/^it sounds like\s+/i, '')
+      .replace(/^it seems like\s+/i, '')
+      .trim();
+  });
+  const limited = softenedSentences.slice(0, risk === 'high' ? 3 : 4).join(' ').trim();
 
   if (risk === 'high') {
     const lower = limited.toLowerCase();

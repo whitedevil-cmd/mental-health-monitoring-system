@@ -37,9 +37,11 @@ class Settings(BaseSettings):
 
     # LLM / Emotion model
     MODEL_NAME: str = "superb/wav2vec2-base-superb-er"
-    LLM_PROVIDER: str | None = None
+    LLM_PROVIDER: str | None = "gemini"
     LLM_API_KEY: str | None = None
-    GROQ_STREAM_MODEL: str = "llama-3.1-8b-instant"
+    GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_API_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta"
 
     # Deepgram Speech-to-Text (REST uploads)
     DEEPGRAM_API_KEY: str | None = None

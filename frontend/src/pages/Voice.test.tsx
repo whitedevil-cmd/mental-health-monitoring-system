@@ -371,6 +371,10 @@ describe('Voice page', () => {
 
     expect(await screen.findByText('I feel uncertain')).toBeInTheDocument();
 
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 1600));
+    });
+
     await waitFor(() => {
       expect(screen.getByText('Emotion unavailable')).toBeInTheDocument();
     });

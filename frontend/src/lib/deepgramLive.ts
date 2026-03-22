@@ -14,8 +14,8 @@ const buildDeepgramUrl = (sampleRate: number): string => {
   url.searchParams.set('smart_format', 'true');
   url.searchParams.set('punctuate', 'true');
   url.searchParams.set('interim_results', 'true');
-  url.searchParams.set('endpointing', '300');
-  url.searchParams.set('utterance_end_ms', '1000');
+  url.searchParams.set('endpointing', '500');
+  url.searchParams.set('utterance_end_ms', '1600');
   return url.toString();
 };
 

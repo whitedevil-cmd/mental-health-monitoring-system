@@ -222,6 +222,7 @@ def create_app() -> FastAPI:
                 "env": {
                     "API_KEY": bool(settings.API_KEY),
                     "LLM_API_KEY": bool(settings.LLM_API_KEY),
+                    "GEMINI_API_KEY": bool(settings.GEMINI_API_KEY),
                     "DEEPGRAM_API_KEY": bool(settings.DEEPGRAM_API_KEY),
                     "ELEVENLABS_API_KEY": bool(settings.ELEVENLABS_API_KEY),
                     "SUPABASE_URL": bool(settings.SUPABASE_URL),

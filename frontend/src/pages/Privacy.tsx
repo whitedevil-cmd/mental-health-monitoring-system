@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { FileText, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import BackButton from '@/components/navigation/BackButton';
 
 const privacySections = [
   {
@@ -60,13 +61,16 @@ const Privacy = () => {
 
       <header className="relative z-10 px-6 py-6 md:px-12">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <Link to="/" className="inline-flex items-center">
-            <img
-              src="/emoiva-logo.png"
-              alt="Emoiva"
-              className="h-12 w-auto max-w-[220px] object-contain md:h-14"
-            />
-          </Link>
+          <div className="flex items-center gap-3">
+            <BackButton fallbackTo="/" />
+            <Link to="/" className="inline-flex items-center">
+              <img
+                src="/emoiva-logo.png"
+                alt="Emoiva"
+                className="h-12 w-auto max-w-[220px] object-contain md:h-14"
+              />
+            </Link>
+          </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" asChild>
               <Link to="/support">Help</Link>

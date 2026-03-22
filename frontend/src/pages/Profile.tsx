@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ChevronRight,
+  KeyRound,
   HeartHandshake,
   History,
   Lightbulb,
@@ -55,10 +56,15 @@ const Profile = () => {
   };
 
   const accountItems = [
-    { label: 'Edit Profile', subtitle: 'Update your account details', icon: UserCircle2, to: null },
-    { label: 'Preferences', subtitle: 'Tune your session experience', icon: Settings2, to: null },
+    { label: 'Edit Profile', subtitle: 'Update your account details', icon: UserCircle2, to: '/edit-profile' },
+    { label: 'Preferences', subtitle: 'Tune your session experience', icon: Settings2, to: '/preferences' },
     { label: 'Session History', subtitle: 'Review past conversations', icon: History, to: '/history' },
     { label: 'Insights', subtitle: 'See your emotional patterns', icon: Lightbulb, to: '/insights' },
+  ];
+
+  const securityItems = [
+    { label: 'Change Password', subtitle: 'Update your account password while signed in', icon: KeyRound, to: '/change-password' },
+    { label: 'Forgot Password', subtitle: 'Send a recovery link to your email', icon: KeyRound, to: '/forgot-password' },
   ];
 
   const supportItems = [
@@ -122,16 +128,36 @@ const Profile = () => {
                 );
               }
 
-              return (
-                <button
-                  key={entry.label}
-                  type="button"
-                  className="flex w-full items-center justify-between gap-3 border-b border-border px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-secondary/50"
-                >
-                  {content}
-                </button>
-              );
+              return null;
             })}
+          </div>
+        </motion.section>
+
+        <motion.section variants={item} className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Security
+            </h2>
+          </div>
+          <div className="overflow-hidden rounded-3xl border border-border bg-card">
+            {securityItems.map((entry) => (
+              <Link
+                key={entry.label}
+                to={entry.to}
+                className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-secondary/50"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary text-foreground">
+                    <entry.icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">{entry.label}</p>
+                    <p className="text-sm text-muted-foreground">{entry.subtitle}</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+            ))}
           </div>
         </motion.section>
 

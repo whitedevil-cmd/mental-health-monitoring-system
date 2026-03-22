@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+
+import BackButton from '@/components/navigation/BackButton';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
@@ -19,12 +22,27 @@ const ResetPassword = () => {
     }
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (password.length < 8) {
+      setError('Use at least 8 characters for your new password.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Both password fields must match.');
+      return;
+    }
+
     setLoading(true);
+    setError('');
     const { error } = await supabase.auth.updateUser({ password });
-    if (error) setError(error.message);
-    else navigate('/dashboard');
+    if (error) {
+      setError(error.message);
+    } else {
+      navigate('/dashboard');
+    }
     setLoading(false);
   };
 
@@ -44,6 +62,7 @@ const ResetPassword = () => {
         transition={{ duration: 0.4 }}
         className="w-full max-w-md space-y-8"
       >
+        <BackButton fallbackTo="/login" className="px-0" />
         <div className="text-center">
           <h1 className="text-3xl font-bold text-foreground">New password</h1>
           <p className="mt-2 text-muted-foreground">Choose a new password for your account</p>
@@ -52,10 +71,30 @@ const ResetPassword = () => {
           {error && <p className="text-sm text-destructive text-center">{error}</p>}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">New password</label>
-            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="rounded-xl h-12" />
+            <Input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="••••••••"
+              required
+              minLength={8}
+              className="rounded-xl h-12"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Confirm new password</label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              placeholder="••••••••"
+              required
+              minLength={8}
+              className="rounded-xl h-12"
+            />
           </div>
           <Button type="submit" variant="hero" size="lg" className="w-full" disabled={loading}>
-            {loading ? 'Updating…' : 'Update password'}
+            {loading ? 'Updating...' : 'Update password'}
           </Button>
         </form>
       </motion.div>

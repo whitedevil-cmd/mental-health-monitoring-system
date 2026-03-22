@@ -20,6 +20,9 @@ const FAST_MERGE_DELAY_MS = 220;
 const SHORT_MERGE_DELAY_MS = 320;
 const MEDIUM_MERGE_DELAY_MS = 475;
 const LONG_MERGE_DELAY_MS = 900;
+const SPEECH_FINAL_FAST_DELAY_MS = 520;
+const SPEECH_FINAL_MEDIUM_DELAY_MS = 820;
+const SPEECH_FINAL_LONG_DELAY_MS = 1450;
 const MIN_ANALYSIS_WORDS = 2;
 const SHORT_FILLER_PATTERN = /^(ok(?:ay)?|hmm+|hm+|mm+|uh+|um+|yeah|yes|no|fine)$/i;
 const SENTENCE_END_PATTERN = /[.!?]["')\]]?$/;
@@ -100,14 +103,14 @@ const getSegmentationDecision = (
 
   if (speechFinal) {
     if (continuationCue || bufferedWordCount <= 3 || segmentWordCount <= 2) {
-      return { action: 'delay', delayMs: LONG_MERGE_DELAY_MS };
+      return { action: 'delay', delayMs: SPEECH_FINAL_LONG_DELAY_MS };
     }
 
     if (weakBreak) {
-      return { action: 'delay', delayMs: MEDIUM_MERGE_DELAY_MS };
+      return { action: 'delay', delayMs: SPEECH_FINAL_MEDIUM_DELAY_MS };
     }
 
-    return { action: 'delay', delayMs: FAST_MERGE_DELAY_MS };
+    return { action: 'delay', delayMs: SPEECH_FINAL_FAST_DELAY_MS };
   }
 
   if (weakBreak || continuationCue) {
