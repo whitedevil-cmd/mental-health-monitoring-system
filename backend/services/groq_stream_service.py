@@ -46,7 +46,6 @@ class GroqStreamService:
                 stream=True,
                 temperature=0.7,
                 max_completion_tokens=220,
-                service_tier="auto",
                 user=user_id,
             )
         except GroqError as exc:
