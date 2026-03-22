@@ -232,6 +232,36 @@ describe('voiceConversationLoop', () => {
     expect(callbacks.states.at(-1)).toBe('idle');
   });
 
+  it('skips empty tts chunks without issuing a tts request', async () => {
+    const callbacks = createCallbacks();
+    const emotionClient: EmotionClient = {
+      analyzeText: vi.fn().mockResolvedValue({ emotion: 'neutral', confidence: 0.51 }),
+    };
+    const llmClient: LlmClient = {
+      streamResponse: vi.fn().mockResolvedValue(createTokenStream(['   '])),
+    };
+    const ttsClient: TtsClient = {
+      synthesize: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    };
+
+    const loop = new RealTimeVoiceAssistantLoop({
+      sessionId: 'session-empty-tts',
+      emotionClient,
+      llmClient,
+      ttsClient,
+      callbacks,
+      audioContextFactory: () => new FakeAudioContext() as unknown as AudioContext,
+    });
+
+    await loop.handleFinalizedUtterance({
+      id: 'user-empty-tts',
+      text: 'Hello there.',
+    });
+
+    expect(ttsClient.synthesize).not.toHaveBeenCalled();
+    expect(callbacks.errors.at(-1)).toContain('Voice playback unavailable');
+  });
+
   it('ignores stale assistant output when a newer utterance starts before the older response finishes', async () => {
     const callbacks = createCallbacks();
     const emotionClient: EmotionClient = {

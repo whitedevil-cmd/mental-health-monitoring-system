@@ -769,6 +769,10 @@ export class RealTimeVoiceAssistantLoop {
     context?: TtsSynthesisContext,
   ): Promise<ArrayBuffer | null> {
     const normalizedText = normalizeText(text);
+    if (!normalizedText) {
+      return null;
+    }
+
     const cached = this.ttsCache.get(normalizedText);
     if (cached) {
       trace.ttsCacheHit = true;
@@ -786,7 +790,7 @@ export class RealTimeVoiceAssistantLoop {
     }
 
     try {
-      const result = await this.ttsClient.synthesize(text, signal, context);
+      const result = await this.ttsClient.synthesize(normalizedText, signal, context);
       this.rememberTts(normalizedText, result);
       if (trace.firstAudioReadyAt === null) {
         trace.firstAudioReadyAt = this.now();
@@ -799,7 +803,7 @@ export class RealTimeVoiceAssistantLoop {
 
       await sleep(120);
       try {
-        const retryResult = await this.ttsClient.synthesize(text, signal, context);
+        const retryResult = await this.ttsClient.synthesize(normalizedText, signal, context);
         this.rememberTts(normalizedText, retryResult);
         if (trace.firstAudioReadyAt === null) {
           trace.firstAudioReadyAt = this.now();

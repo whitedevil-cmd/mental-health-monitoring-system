@@ -94,13 +94,18 @@ export const createRealtimeVoiceClients = (
 
   const ttsClient: TtsClient = {
     async synthesize(text, signal, context?: TtsSynthesisContext) {
+      const normalizedText = text.trim();
+      if (!normalizedText) {
+        throw new Error('Skipped empty TTS chunk.');
+      }
+
       const response = await fetch(`${API_BASE}/api/v1/assistant/tts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text,
+          text: normalizedText,
           previous_text: context?.previousText,
           next_text: context?.nextText,
         }),
