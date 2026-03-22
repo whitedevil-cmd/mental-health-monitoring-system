@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     MODEL_NAME: str = "superb/wav2vec2-base-superb-er"
     LLM_PROVIDER: str | None = None
     LLM_API_KEY: str | None = None
+    GROQ_STREAM_MODEL: str = "llama-3.1-8b-instant"
 
     # Deepgram Speech-to-Text (REST uploads)
     DEEPGRAM_API_KEY: str | None = None
@@ -48,6 +49,9 @@ class Settings(BaseSettings):
     ELEVENLABS_STT_URL: str = "wss://api.elevenlabs.io/v1/speech-to-text/realtime"
     ELEVENLABS_STT_MODEL_ID: str = "scribe_v2_realtime"
     ELEVENLABS_TIMEOUT_SECONDS: float = 15.0
+    ELEVENLABS_TTS_VOICE_ID: str = "JBFqnCBsd6RMkjVDRZzb"
+    ELEVENLABS_TTS_MODEL_ID: str = "eleven_turbo_v2_5"
+    ELEVENLABS_TTS_OUTPUT_FORMAT: str = "mp3_22050_32"
 
     model_config = SettingsConfigDict(
         env_file=".env",

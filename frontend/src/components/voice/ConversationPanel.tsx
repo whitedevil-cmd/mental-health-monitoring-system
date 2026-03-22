@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 
-export interface ConversationUtterance {
+export interface ConversationTurnView {
   id: string;
+  role: 'user' | 'assistant';
   transcript: string;
   emotion: string | null;
   confidence: number | null;
@@ -9,8 +10,10 @@ export interface ConversationUtterance {
 }
 
 interface ConversationPanelProps {
-  utterances: ConversationUtterance[];
+  turns: ConversationTurnView[];
   partialTranscript: string;
+  assistantDraft: string;
+  assistantState: 'idle' | 'thinking' | 'speaking';
 }
 
 const formatConfidence = (confidence: number | null): string => {
@@ -20,58 +23,89 @@ const formatConfidence = (confidence: number | null): string => {
   return `${Math.round(confidence * 100)}%`;
 };
 
-const ConversationPanel = ({ utterances, partialTranscript }: ConversationPanelProps) => {
+const ConversationPanel = ({
+  turns,
+  partialTranscript,
+  assistantDraft,
+  assistantState,
+}: ConversationPanelProps) => {
   return (
-    <div className="glass-card rounded-2xl p-6 min-h-[240px]">
+    <div className="glass-card min-h-[280px] rounded-2xl p-6">
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Live Conversation
         </h3>
       </div>
 
-      {utterances.length === 0 && !partialTranscript ? (
-        <p className="text-muted-foreground italic">Finalized transcript segments will appear here.</p>
+      {turns.length === 0 && !partialTranscript && !assistantDraft ? (
+        <p className="italic text-muted-foreground">Start speaking to begin the conversation.</p>
       ) : (
         <div className="space-y-4">
           <AnimatePresence initial={false}>
-            {utterances.map((utterance) => (
+            {turns.map((turn) => (
               <motion.div
-                key={utterance.id}
+                key={turn.id}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                className="rounded-xl border border-border/70 bg-background/50 p-4"
+                className={`rounded-2xl border p-4 ${
+                  turn.role === 'assistant'
+                    ? 'border-primary/20 bg-primary/5'
+                    : 'border-border/70 bg-background/50'
+                }`}
               >
-                <p className="text-foreground leading-relaxed">{utterance.transcript}</p>
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-                  <span className="rounded-full bg-secondary px-3 py-1 text-foreground">
-                    {utterance.status === 'failed'
-                      ? 'Emotion unavailable'
-                      : utterance.status === 'interrupted'
-                        ? 'Stream interrupted'
-                      : utterance.status === 'skipped'
-                        ? 'Too short to analyze'
-                      : utterance.status === 'pending'
-                        ? 'Analyzing emotion...'
-                        : utterance.emotion}
-                  </span>
-                  <span className="text-muted-foreground">
-                    Confidence: {utterance.status === 'resolved' ? formatConfidence(utterance.confidence) : '--'}
+                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+                  <span className={turn.role === 'assistant' ? 'text-primary' : 'text-muted-foreground'}>
+                    {turn.role === 'assistant' ? 'Assistant' : 'You'}
                   </span>
                 </div>
+                <p className="leading-relaxed text-foreground">{turn.transcript}</p>
+
+                {turn.role === 'user' ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                    <span className="rounded-full bg-secondary px-3 py-1 text-foreground">
+                      {turn.status === 'failed'
+                        ? 'Emotion unavailable'
+                        : turn.status === 'interrupted'
+                          ? 'Stream interrupted'
+                          : turn.status === 'skipped'
+                            ? 'Too short to analyze'
+                            : turn.status === 'pending'
+                              ? 'Analyzing emotion...'
+                              : turn.emotion}
+                    </span>
+                    <span className="text-muted-foreground">
+                      Confidence: {turn.status === 'resolved' ? formatConfidence(turn.confidence) : '--'}
+                    </span>
+                  </div>
+                ) : null}
               </motion.div>
             ))}
           </AnimatePresence>
+
+          {assistantState !== 'idle' && assistantDraft ? (
+            <motion.div
+              key="assistant-draft"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="rounded-2xl border border-primary/20 bg-primary/5 p-4"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                {assistantState === 'thinking' ? 'Thinking' : 'Speaking'}
+              </p>
+              <p className="mt-2 leading-relaxed text-foreground">{assistantDraft}</p>
+            </motion.div>
+          ) : null}
 
           {partialTranscript ? (
             <motion.div
               key="partial-transcript"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4"
+              className="rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-4"
             >
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Listening</p>
-              <p className="mt-2 text-foreground/90 leading-relaxed">{partialTranscript}</p>
+              <p className="mt-2 leading-relaxed text-foreground/90">{partialTranscript}</p>
             </motion.div>
           ) : null}
         </div>

@@ -106,10 +106,11 @@ class ApiClient {
     return this.request<DeepgramTokenResponse>('/deepgram-token');
   }
 
-  async analyzeText(text: string): Promise<AnalyzeTextResponse> {
+  async analyzeText(text: string, signal?: AbortSignal): Promise<AnalyzeTextResponse> {
     return this.request<AnalyzeTextResponse>('/analyze-text', {
       method: 'POST',
       body: JSON.stringify({ text }),
+      signal,
     });
   }
 

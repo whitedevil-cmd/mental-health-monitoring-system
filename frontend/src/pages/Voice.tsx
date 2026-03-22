@@ -1,37 +1,37 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import AppLayout from '@/components/layout/AppLayout';
-import type { ConversationUtterance } from '@/components/voice/ConversationPanel';
-import { apiClient } from '@/lib/apiClient';
+import type { ConversationTurnView } from '@/components/voice/ConversationPanel';
+import { useAuth } from '@/contexts/AuthContext';
 import { lazyWithPreload } from '@/lib/lazyWithPreload';
+import { createRealtimeVoiceClients } from '@/lib/realtimeVoiceClients';
+import {
+  createVoiceAudioLoop,
+  type AssistantResponseState,
+  type AssistantTurn,
+  type RealTimeVoiceAssistantLoop,
+} from '@/lib/voiceConversationLoop';
 
 const VoiceRecorder = lazyWithPreload(() => import('@/components/voice/VoiceRecorder'));
 const ConversationPanel = lazyWithPreload(() => import('@/components/voice/ConversationPanel'));
 
-const BASE_ANALYSIS_DEBOUNCE_MS = 650;
-const FAST_ANALYSIS_DEBOUNCE_MS = 220;
-const SHORT_ANALYSIS_DEBOUNCE_MS = 320;
-const MEDIUM_ANALYSIS_DEBOUNCE_MS = 475;
-const LONG_ANALYSIS_DEBOUNCE_MS = 900;
-const ANALYSIS_REQUEST_TIMEOUT_MS = 8_000;
+const BASE_MERGE_DELAY_MS = 650;
+const FAST_MERGE_DELAY_MS = 220;
+const SHORT_MERGE_DELAY_MS = 320;
+const MEDIUM_MERGE_DELAY_MS = 475;
+const LONG_MERGE_DELAY_MS = 900;
 const MIN_ANALYSIS_WORDS = 2;
 const SHORT_FILLER_PATTERN = /^(ok(?:ay)?|hmm+|hm+|mm+|uh+|um+|yeah|yes|no|fine)$/i;
 const SENTENCE_END_PATTERN = /[.!?]["')\]]?$/;
 const WEAK_BREAK_PATTERN = /[,;:]\s*$/;
-const CONTINUATION_CUE_PATTERN = /\b(?:and|but|or|because|so|if|when|while|though|although|that|which|who|whom|whose|to|of|for|with|at|from|into|on|in|about|like|as|than)\s*$/i;
+const CONTINUATION_CUE_PATTERN =
+  /\b(?:and|but|or|because|so|if|when|while|though|although|that|which|who|whom|whose|to|of|for|with|at|from|into|on|in|about|like|as|than)\s*$/i;
 const CORRECTION_LEAD_PATTERN = /^(?:i mean|sorry|actually|rather|or maybe|no,? wait)\b/i;
 
 type FinalSegmentEvent = {
   id: string;
   transcript: string;
   speechFinal: boolean;
-};
-
-type QueuedUtterance = {
-  id: string;
-  transcript: string;
-  requestToken: number;
-  sessionId: number;
 };
 
 type PendingUtterance = {
@@ -45,31 +45,12 @@ type SegmentationDecision =
   | { action: 'delay'; delayMs: number };
 
 const normalizeText = (value: string): string => value.replace(/\s+/g, ' ').trim();
-
 const countWords = (value: string): number => normalizeText(value).split(' ').filter(Boolean).length;
 const countSentenceTerminators = (value: string): number => (normalizeText(value).match(/[.!?]/g) ?? []).length;
 const isFillerFragment = (value: string): boolean => SHORT_FILLER_PATTERN.test(normalizeText(value));
 const endsWithStrongSentence = (value: string): boolean => SENTENCE_END_PATTERN.test(normalizeText(value));
 const endsWithWeakBreak = (value: string): boolean => WEAK_BREAK_PATTERN.test(normalizeText(value));
 const endsWithContinuationCue = (value: string): boolean => CONTINUATION_CUE_PATTERN.test(normalizeText(value));
-const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
-  return new Promise<T>((resolve, reject) => {
-    const timer = window.setTimeout(() => {
-      reject(new Error('Emotion analysis timed out.'));
-    }, timeoutMs);
-
-    promise.then(
-      (value) => {
-        window.clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        window.clearTimeout(timer);
-        reject(error);
-      },
-    );
-  });
-};
 
 const isAnalyzableUtterance = (transcript: string): boolean => {
   const normalized = normalizeText(transcript);
@@ -99,13 +80,14 @@ const getSegmentationDecision = (
   const segmentWordCount = countWords(normalizedSegment);
   const bufferedWordCount = countWords(normalizedBuffered);
   const terminatorCount = countSentenceTerminators(normalizedBuffered);
-  const strongSentenceEnd = endsWithStrongSentence(normalizedSegment) || endsWithStrongSentence(normalizedBuffered);
+  const strongSentenceEnd =
+    endsWithStrongSentence(normalizedSegment) || endsWithStrongSentence(normalizedBuffered);
   const weakBreak = endsWithWeakBreak(normalizedSegment) || endsWithWeakBreak(normalizedBuffered);
   const continuationCue = endsWithContinuationCue(normalizedBuffered);
   const correctionLead = CORRECTION_LEAD_PATTERN.test(normalizedSegment);
 
   if (correctionLead) {
-    return { action: 'delay', delayMs: SHORT_ANALYSIS_DEBOUNCE_MS };
+    return { action: 'delay', delayMs: SHORT_MERGE_DELAY_MS };
   }
 
   if (strongSentenceEnd && bufferedWordCount >= 3 && !continuationCue) {
@@ -118,78 +100,139 @@ const getSegmentationDecision = (
 
   if (speechFinal) {
     if (continuationCue || bufferedWordCount <= 3 || segmentWordCount <= 2) {
-      return { action: 'delay', delayMs: LONG_ANALYSIS_DEBOUNCE_MS };
+      return { action: 'delay', delayMs: LONG_MERGE_DELAY_MS };
     }
 
     if (weakBreak) {
-      return { action: 'delay', delayMs: MEDIUM_ANALYSIS_DEBOUNCE_MS };
+      return { action: 'delay', delayMs: MEDIUM_MERGE_DELAY_MS };
     }
 
-    return { action: 'delay', delayMs: FAST_ANALYSIS_DEBOUNCE_MS };
+    return { action: 'delay', delayMs: FAST_MERGE_DELAY_MS };
   }
 
   if (weakBreak || continuationCue) {
-    return { action: 'delay', delayMs: LONG_ANALYSIS_DEBOUNCE_MS };
+    return { action: 'delay', delayMs: LONG_MERGE_DELAY_MS };
   }
 
   if (bufferedWordCount >= 10 || segmentWordCount >= 6) {
-    return { action: 'delay', delayMs: SHORT_ANALYSIS_DEBOUNCE_MS };
+    return { action: 'delay', delayMs: SHORT_MERGE_DELAY_MS };
   }
 
   if (bufferedWordCount >= 5 || segmentWordCount >= 3) {
-    return { action: 'delay', delayMs: MEDIUM_ANALYSIS_DEBOUNCE_MS };
+    return { action: 'delay', delayMs: MEDIUM_MERGE_DELAY_MS };
   }
 
-  return { action: 'delay', delayMs: BASE_ANALYSIS_DEBOUNCE_MS };
+  return { action: 'delay', delayMs: BASE_MERGE_DELAY_MS };
 };
 
+const mapTurns = (turns: AssistantTurn[]): ConversationTurnView[] =>
+  turns.map((turn) => ({
+    id: turn.id,
+    role: turn.role,
+    transcript: turn.text,
+    emotion: turn.emotion,
+    confidence: turn.confidence,
+    status: turn.status,
+  }));
+
 const Voice = () => {
-  const [utterances, setUtterances] = useState<ConversationUtterance[]>([]);
+  const { user } = useAuth();
+  const { emotionClient, llmClient, ttsClient } = useMemo(
+    () => createRealtimeVoiceClients(user?.id),
+    [user?.id],
+  );
+  const [loopTurns, setLoopTurns] = useState<ConversationTurnView[]>([]);
   const [partialTranscript, setPartialTranscript] = useState('');
   const [pendingPreview, setPendingPreview] = useState('');
+  const [assistantDraft, setAssistantDraft] = useState('');
+  const [assistantState, setAssistantState] = useState<AssistantResponseState>('idle');
+  const [interruptedTurn, setInterruptedTurn] = useState<ConversationTurnView | null>(null);
 
-  const committedTranscriptRef = useRef('');
+  const loopRef = useRef<RealTimeVoiceAssistantLoop | null>(null);
+  const sessionIdRef = useRef(crypto.randomUUID());
   const pendingUtteranceRef = useRef<PendingUtterance | null>(null);
   const flushTimerRef = useRef<number | null>(null);
-  const sessionEpochRef = useRef(0);
-  const analysisRequestTokenRef = useRef(0);
   const processedSegmentIdsRef = useRef<Set<string>>(new Set());
   const processedUtteranceKeysRef = useRef<Set<string>>(new Set());
-  const pendingAnalysisIdsRef = useRef<Set<string>>(new Set());
-  const utteranceRequestTokensRef = useRef<Map<string, number>>(new Map());
-  const analysisQueueRef = useRef<QueuedUtterance[]>([]);
-  const isAnalyzingRef = useRef(false);
+  const committedTranscriptRef = useRef('');
+  const latestPartialTranscriptRef = useRef('');
 
-  const visiblePartialTranscript = useMemo(
-    () => (pendingPreview ? '' : partialTranscript),
-    [partialTranscript, pendingPreview],
-  );
+  const turns = useMemo(() => {
+    if (!interruptedTurn) {
+      return loopTurns;
+    }
 
-  const appendUtterance = useCallback((utterance: ConversationUtterance) => {
-    setUtterances((current) => [...current, utterance]);
+    const interruptedTranscript = normalizeText(interruptedTurn.transcript);
+    const recovered = loopTurns.some(
+      (turn) =>
+        turn.role === 'user' &&
+        normalizeText(turn.transcript).startsWith(interruptedTranscript),
+    );
+
+    if (recovered) {
+      return loopTurns;
+    }
+
+    return [interruptedTurn, ...loopTurns];
+  }, [interruptedTurn, loopTurns]);
+
+  useEffect(() => {
+    void VoiceRecorder.preload();
+    void ConversationPanel.preload();
   }, []);
 
-  const upsertRecoveredUtterance = useCallback((nextUtterance: ConversationUtterance) => {
-    setUtterances((current) => {
-      const recoveredIndex = current.findIndex(
-        (utterance) =>
-          utterance.status === 'interrupted' &&
-          normalizeText(nextUtterance.transcript).startsWith(normalizeText(utterance.transcript)),
-      );
-
-      if (recoveredIndex === -1) {
-        return [...current, nextUtterance];
-      }
-
-      const updated = [...current];
-      updated[recoveredIndex] = nextUtterance;
-      return updated;
+  useEffect(() => {
+    loopRef.current = createVoiceAudioLoop({
+      sessionId: sessionIdRef.current,
+      userId: user?.id,
+      emotionClient,
+      llmClient,
+      ttsClient,
+      callbacks: {
+        onTurnsChanged: (nextTurns) => {
+          setLoopTurns(mapTurns(nextTurns));
+        },
+        onAssistantStateChanged: (state) => {
+          setAssistantState(state);
+          if (state === 'idle') {
+            setAssistantDraft('');
+          }
+        },
+        onAssistantTextStreaming: (text) => {
+          setAssistantDraft(text);
+        },
+        onAssistantTextReady: (text) => {
+          setAssistantDraft(text);
+        },
+        onAssistantSpeechStarted: () => undefined,
+        onAssistantSpeechEnded: () => undefined,
+        onError: (message) => {
+          console.error(message);
+        },
+      },
     });
-  }, []);
 
-  const updateUtterance = useCallback((id: string, updater: (utterance: ConversationUtterance) => ConversationUtterance) => {
-    setUtterances((current) => current.map((utterance) => (utterance.id === id ? updater(utterance) : utterance)));
-  }, []);
+    return () => {
+      loopRef.current = null;
+    };
+  }, [emotionClient, llmClient, ttsClient, user?.id]);
+
+  useEffect(() => {
+    if (!interruptedTurn) {
+      return;
+    }
+
+    const interruptedTranscript = normalizeText(interruptedTurn.transcript);
+    const recovered = loopTurns.some(
+      (turn) =>
+        turn.role === 'user' &&
+        normalizeText(turn.transcript).startsWith(interruptedTranscript),
+    );
+
+    if (recovered) {
+      setInterruptedTurn(null);
+    }
+  }, [interruptedTurn, loopTurns]);
 
   const clearFlushTimer = useCallback(() => {
     if (flushTimerRef.current !== null) {
@@ -198,85 +241,7 @@ const Voice = () => {
     }
   }, []);
 
-  const buildAnalysisKey = useCallback((sessionId: number, utteranceId: string) => {
-    return `${sessionId}:${utteranceId}`;
-  }, []);
-
-  const isCurrentAnalysisTarget = useCallback((utteranceId: string, sessionId: number, requestToken: number) => {
-    return (
-      sessionEpochRef.current === sessionId &&
-      utteranceRequestTokensRef.current.get(utteranceId) === requestToken
-    );
-  }, []);
-
-  const drainAnalysisQueue = useCallback(async () => {
-    if (isAnalyzingRef.current) {
-      return;
-    }
-
-    isAnalyzingRef.current = true;
-    try {
-      while (analysisQueueRef.current.length > 0) {
-        const next = analysisQueueRef.current.shift();
-        if (!next) {
-          continue;
-        }
-
-        try {
-          const analysis = await withTimeout(
-            apiClient.analyzeText(next.transcript),
-            ANALYSIS_REQUEST_TIMEOUT_MS,
-          );
-          if (!isCurrentAnalysisTarget(next.id, next.sessionId, next.requestToken)) {
-            continue;
-          }
-
-          updateUtterance(next.id, (utterance) => ({
-            ...utterance,
-            emotion: analysis.emotion,
-            confidence: analysis.confidence,
-            status: 'resolved',
-          }));
-        } catch (error) {
-          console.error('Emotion analysis failed:', error);
-          if (!isCurrentAnalysisTarget(next.id, next.sessionId, next.requestToken)) {
-            continue;
-          }
-
-          updateUtterance(next.id, (utterance) => ({
-            ...utterance,
-            emotion: 'emotion unavailable',
-            confidence: null,
-            status: 'failed',
-          }));
-        } finally {
-          if (isCurrentAnalysisTarget(next.id, next.sessionId, next.requestToken)) {
-            pendingAnalysisIdsRef.current.delete(buildAnalysisKey(next.sessionId, next.id));
-            utteranceRequestTokensRef.current.delete(next.id);
-          }
-        }
-      }
-    } finally {
-      isAnalyzingRef.current = false;
-    }
-  }, [buildAnalysisKey, isCurrentAnalysisTarget, updateUtterance]);
-
-  const enqueueAnalysis = useCallback((id: string, transcript: string) => {
-    const sessionId = sessionEpochRef.current;
-    const analysisKey = buildAnalysisKey(sessionId, id);
-    if (pendingAnalysisIdsRef.current.has(analysisKey)) {
-      return;
-    }
-
-    const requestToken = analysisRequestTokenRef.current + 1;
-    analysisRequestTokenRef.current = requestToken;
-    pendingAnalysisIdsRef.current.add(analysisKey);
-    utteranceRequestTokensRef.current.set(id, requestToken);
-    analysisQueueRef.current.push({ id, transcript, requestToken, sessionId });
-    void drainAnalysisQueue();
-  }, [buildAnalysisKey, drainAnalysisQueue]);
-
-  const flushPendingUtterance = useCallback(() => {
+  const flushPendingUtterance = useCallback(async () => {
     clearFlushTimer();
 
     const pending = pendingUtteranceRef.current;
@@ -288,89 +253,67 @@ const Voice = () => {
     pendingUtteranceRef.current = null;
     setPendingPreview('');
 
-    if (!transcript) {
+    if (!transcript || !isAnalyzableUtterance(transcript)) {
+      setPartialTranscript('');
       return;
     }
 
     const utteranceId = pending.segmentIds[pending.segmentIds.length - 1];
     const dedupeKey = transcript.toLowerCase();
     if (processedUtteranceKeysRef.current.has(dedupeKey)) {
+      setPartialTranscript('');
       return;
+    }
+
+    if (
+      interruptedTurn &&
+      normalizeText(transcript).startsWith(normalizeText(interruptedTurn.transcript))
+    ) {
+      setInterruptedTurn(null);
     }
 
     processedUtteranceKeysRef.current.add(dedupeKey);
     committedTranscriptRef.current = [committedTranscriptRef.current, transcript].filter(Boolean).join(' ').trim();
     setPartialTranscript('');
 
-    if (!isAnalyzableUtterance(transcript)) {
-      upsertRecoveredUtterance({
-        id: utteranceId,
-        transcript,
-        emotion: 'too short to analyze',
-        confidence: null,
-        status: 'skipped',
-      });
-      return;
-    }
-
-    upsertRecoveredUtterance({
+    await loopRef.current?.handleFinalizedUtterance({
       id: utteranceId,
-      transcript,
-      emotion: null,
-      confidence: null,
-      status: 'pending',
+      text: transcript,
+      timestamp: new Date().toISOString(),
     });
-    enqueueAnalysis(utteranceId, transcript);
-  }, [clearFlushTimer, enqueueAnalysis, upsertRecoveredUtterance]);
+  }, [clearFlushTimer, interruptedTurn]);
 
   const scheduleFlush = useCallback((delayMs: number) => {
-    const sessionId = sessionEpochRef.current;
     clearFlushTimer();
     flushTimerRef.current = window.setTimeout(() => {
-      if (sessionId !== sessionEpochRef.current) {
-        return;
-      }
-
-      flushPendingUtterance();
+      void flushPendingUtterance();
     }, delayMs);
   }, [clearFlushTimer, flushPendingUtterance]);
-
-  const resetSession = useCallback(() => {
-    sessionEpochRef.current += 1;
-    clearFlushTimer();
-    pendingUtteranceRef.current = null;
-    committedTranscriptRef.current = '';
-    processedSegmentIdsRef.current = new Set();
-    processedUtteranceKeysRef.current = new Set();
-    pendingAnalysisIdsRef.current = new Set();
-    utteranceRequestTokensRef.current = new Map();
-    analysisQueueRef.current = [];
-    isAnalyzingRef.current = false;
-    setPartialTranscript('');
-    setPendingPreview('');
-    setUtterances([]);
-  }, [clearFlushTimer]);
 
   const handleTranscriptChange = useCallback((nextTranscript: string) => {
     const normalized = normalizeText(nextTranscript);
     if (!normalized) {
-      resetSession();
+      latestPartialTranscriptRef.current = '';
+      setPartialTranscript('');
       return;
     }
 
     const committed = committedTranscriptRef.current;
-    if (!committed) {
-      setPartialTranscript(normalized);
-      return;
-    }
+    const nextPartial = committed && normalized.startsWith(committed)
+      ? normalized.slice(committed.length).trim()
+      : normalized;
 
-    if (!normalized.startsWith(committed)) {
-      setPartialTranscript(normalized);
-      return;
-    }
+    const hadPartial = Boolean(latestPartialTranscriptRef.current);
+    latestPartialTranscriptRef.current = nextPartial;
+    setPartialTranscript(nextPartial);
 
-    setPartialTranscript(normalized.slice(committed.length).trim());
-  }, [resetSession]);
+    if (!hadPartial && nextPartial) {
+      if (assistantState === 'speaking') {
+        setAssistantDraft('');
+      }
+      loopRef.current?.handleUserSpeechStart();
+    }
+  }, [assistantState]);
 
   const handleFinalTranscript = useCallback((segment: FinalSegmentEvent) => {
     const transcript = normalizeText(segment.transcript);
@@ -406,7 +349,7 @@ const Voice = () => {
 
     const decision = getSegmentationDecision(transcript, bufferedTranscript, segment.speechFinal);
     if (decision.action === 'flush-now') {
-      flushPendingUtterance();
+      void flushPendingUtterance();
       return;
     }
 
@@ -414,47 +357,29 @@ const Voice = () => {
   }, [flushPendingUtterance, scheduleFlush]);
 
   const handleUtteranceEnd = useCallback(() => {
-    flushPendingUtterance();
+    void flushPendingUtterance();
   }, [flushPendingUtterance]);
 
   const handleStreamInterrupted = useCallback((payload: { transcript: string }) => {
     clearFlushTimer();
-
-    if (pendingUtteranceRef.current?.parts.length) {
-      flushPendingUtterance();
+    pendingUtteranceRef.current = null;
+    latestPartialTranscriptRef.current = '';
+    setPendingPreview('');
+    setPartialTranscript('');
+    const transcript = normalizeText(payload.transcript || latestPartialTranscriptRef.current);
+    if (!transcript) {
       return;
     }
 
-    const interruptedTranscript = normalizeText(payload.transcript || partialTranscript);
-    if (!interruptedTranscript) {
-      setPendingPreview('');
-      setPartialTranscript('');
-      return;
-    }
-
-    const interruptedKey = `interrupted:${interruptedTranscript.toLowerCase()}`;
-    if (processedUtteranceKeysRef.current.has(interruptedKey)) {
-      setPendingPreview('');
-      setPartialTranscript('');
-      return;
-    }
-
-    processedUtteranceKeysRef.current.add(interruptedKey);
-    appendUtterance({
+    setInterruptedTurn({
       id: `interrupted-${Date.now()}`,
-      transcript: interruptedTranscript,
+      role: 'user',
+      transcript,
       emotion: 'stream interrupted',
       confidence: null,
       status: 'interrupted',
     });
-    setPendingPreview('');
-    setPartialTranscript('');
-  }, [appendUtterance, clearFlushTimer, flushPendingUtterance, partialTranscript]);
-
-  useEffect(() => {
-    void VoiceRecorder.preload();
-    void ConversationPanel.preload();
-  }, []);
+  }, [clearFlushTimer]);
 
   useEffect(() => {
     return () => {
@@ -468,19 +393,12 @@ const Voice = () => {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-foreground">Voice Session</h1>
           <p className="mt-2 text-muted-foreground">
-            Speak freely - final transcript chunks are grouped into utterances before emotion analysis.
+            Real-time voice conversation with streaming transcript, emotion-aware responses, and interruption support.
           </p>
         </motion.div>
 
         <div className="mb-10 flex flex-col items-center">
-          <Suspense
-            fallback={
-              <div className="flex flex-col items-center gap-4">
-                <div className="h-28 w-28 animate-pulse rounded-full bg-primary/10" />
-                <p className="text-sm text-muted-foreground">Loading voice tools...</p>
-              </div>
-            }
-          >
+          <Suspense fallback={null}>
             <VoiceRecorder
               onTranscriptChange={handleTranscriptChange}
               onFinalTranscript={handleFinalTranscript}
@@ -490,14 +408,13 @@ const Voice = () => {
           </Suspense>
         </div>
 
-        <Suspense
-          fallback={
-            <div className="glass-card min-h-[240px] rounded-2xl p-6">
-              <p className="text-muted-foreground italic">Loading conversation tools...</p>
-            </div>
-          }
-        >
-          <ConversationPanel utterances={utterances} partialTranscript={visiblePartialTranscript || pendingPreview} />
+        <Suspense fallback={null}>
+          <ConversationPanel
+            turns={turns}
+            partialTranscript={pendingPreview || partialTranscript}
+            assistantDraft={assistantDraft}
+            assistantState={assistantState}
+          />
         </Suspense>
       </div>
     </AppLayout>

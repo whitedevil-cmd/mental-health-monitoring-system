@@ -1,8 +1,10 @@
+import type { ReactNode } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Voice from '@/pages/Voice';
 
 const analyzeTextMock = vi.fn();
+
 let voiceHandlers: {
   onTranscriptChange?: (transcript: string) => void;
   onFinalTranscript?: (segment: { id: string; transcript: string; speechFinal: boolean }) => void;
@@ -11,7 +13,16 @@ let voiceHandlers: {
 } = {};
 
 vi.mock('@/components/layout/AppLayout', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: {
+      id: 'user-1',
+      email: 'user@example.com',
+    },
+  }),
 }));
 
 vi.mock('@/components/voice/VoiceRecorder', () => ({
@@ -119,42 +130,174 @@ vi.mock('@/components/voice/VoiceRecorder', () => ({
 
 vi.mock('@/components/voice/ConversationPanel', () => ({
   default: ({
-    utterances,
+    turns,
     partialTranscript,
+    assistantDraft,
+    assistantState,
   }: {
-    utterances: Array<{ transcript: string; emotion: string | null; confidence: number | null; status: string }>;
+    turns: Array<{ transcript: string; emotion: string | null; confidence: number | null; status: string }>;
     partialTranscript: string;
+    assistantDraft: string;
+    assistantState: string;
   }) => (
     <div>
-      {utterances.map((utterance, index) => (
-        <div key={`${utterance.transcript}-${index}`}>
-          <p>{utterance.transcript}</p>
+      {turns.map((turn, index) => (
+        <div key={`${turn.transcript}-${index}`}>
+          <p>{turn.transcript}</p>
           <span>
-            {utterance.status === 'failed'
+            {turn.status === 'failed'
               ? 'Emotion unavailable'
-              : utterance.status === 'interrupted'
+              : turn.status === 'interrupted'
                 ? 'Stream interrupted'
-                : utterance.status === 'skipped'
+                : turn.status === 'skipped'
                   ? 'Too short to analyze'
-                  : utterance.status === 'pending'
+                  : turn.status === 'pending'
                     ? 'Analyzing emotion...'
-                    : utterance.emotion}
+                    : turn.emotion}
           </span>
           <span>
-            {utterance.status === 'resolved' && utterance.confidence !== null
-              ? `Confidence: ${Math.round(utterance.confidence * 100)}%`
+            {turn.status === 'resolved' && turn.confidence !== null
+              ? `Confidence: ${Math.round(turn.confidence * 100)}%`
               : 'Confidence: --'}
           </span>
         </div>
       ))}
+      {assistantDraft ? <p>{assistantDraft}</p> : null}
       {partialTranscript ? <p>{partialTranscript}</p> : null}
+      <span>{assistantState}</span>
     </div>
   ),
 }));
 
-vi.mock('@/lib/apiClient', () => ({
-  apiClient: {
-    analyzeText: (...args: unknown[]) => analyzeTextMock(...args),
+vi.mock('@/lib/realtimeVoiceClients', () => ({
+  createRealtimeVoiceClients: () => ({
+    emotionClient: {
+      analyzeText: (...args: unknown[]) => analyzeTextMock(...args),
+    },
+    llmClient: {
+      streamResponse: vi.fn(),
+    },
+    ttsClient: {
+      synthesize: vi.fn(),
+    },
+  }),
+}));
+
+vi.mock('@/lib/voiceConversationLoop', () => ({
+  createVoiceAudioLoop: ({
+    emotionClient,
+    callbacks,
+  }: {
+    emotionClient: { analyzeText: (text: string) => Promise<{ emotion: string; confidence: number }> };
+    callbacks: {
+      onTurnsChanged: (turns: Array<{
+        id: string;
+        role: 'user';
+        text: string;
+        emotion: string | null;
+        confidence: number | null;
+        status: string;
+        timestamp?: string;
+      }>) => void;
+      onAssistantStateChanged: (state: 'idle' | 'thinking' | 'speaking') => void;
+    };
+  }) => {
+    let turns: Array<{
+      id: string;
+      role: 'user';
+      text: string;
+      emotion: string | null;
+      confidence: number | null;
+      status: 'pending' | 'resolved' | 'failed';
+      timestamp?: string;
+    }> = [];
+    let epoch = 0;
+
+    const publish = () => {
+      callbacks.onTurnsChanged([...turns]);
+    };
+
+    return {
+      handleUserSpeechStart: () => {
+        epoch += 1;
+        callbacks.onAssistantStateChanged('idle');
+      },
+      handleFinalizedUtterance: async ({
+        id,
+        text,
+        timestamp,
+      }: {
+        id: string;
+        text: string;
+        timestamp?: string;
+      }) => {
+        const requestEpoch = ++epoch;
+        let timeoutId: number | null = null;
+
+        turns = [
+          ...turns,
+          {
+            id,
+            role: 'user',
+            text,
+            emotion: null,
+            confidence: null,
+            status: 'pending',
+            timestamp,
+          },
+        ];
+        publish();
+        callbacks.onAssistantStateChanged('thinking');
+
+        try {
+          const analysis = await Promise.race([
+            emotionClient.analyzeText(text),
+            new Promise<never>((_, reject) => {
+              timeoutId = window.setTimeout(() => {
+                reject(new Error('timeout'));
+              }, 8_000);
+            }),
+          ]);
+
+          if (requestEpoch !== epoch) {
+            return;
+          }
+
+          turns = turns.map((turn) =>
+            turn.id === id
+              ? {
+                  ...turn,
+                  emotion: analysis.emotion,
+                  confidence: analysis.confidence,
+                  status: 'resolved',
+                }
+              : turn,
+          );
+          publish();
+        } catch {
+          if (requestEpoch !== epoch) {
+            return;
+          }
+
+          turns = turns.map((turn) =>
+            turn.id === id
+              ? {
+                  ...turn,
+                  emotion: 'emotion unavailable',
+                  confidence: null,
+                  status: 'failed',
+                }
+              : turn,
+          );
+          publish();
+        } finally {
+          if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+          }
+          callbacks.onAssistantStateChanged('idle');
+        }
+      },
+    };
   },
 }));
 
@@ -253,7 +396,6 @@ describe('Voice page', () => {
     }));
 
     render(<Voice />);
-
     fireEvent.click(await screen.findByRole('button', { name: 'Emit rapid burst' }));
 
     expect(analyzeTextMock).not.toHaveBeenCalled();

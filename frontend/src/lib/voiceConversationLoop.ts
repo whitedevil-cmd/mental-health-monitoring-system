@@ -84,8 +84,17 @@ export interface LlmClient {
   streamResponse(messages: LlmMessage[], signal?: AbortSignal): Promise<AsyncIterable<string>>;
 }
 
+export type TtsSynthesisContext = {
+  previousText?: string;
+  nextText?: string;
+};
+
 export interface TtsClient {
-  synthesize(text: string, signal?: AbortSignal): Promise<ArrayBuffer>;
+  synthesize(
+    text: string,
+    signal?: AbortSignal,
+    context?: TtsSynthesisContext,
+  ): Promise<ArrayBuffer>;
 }
 
 export interface SessionPersistenceClient {
@@ -111,6 +120,7 @@ const FIRST_TTS_CHUNK_MIN_CHARS = 72;
 const FIRST_TTS_CHUNK_MIN_WORDS = 10;
 const MAX_TTS_CACHE_ITEMS = 24;
 const LLM_STREAM_IDLE_TIMEOUT_MS = 1_000;
+const PLAYBACK_START_DELAY_MS = 100;
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -424,11 +434,13 @@ class AudioPlaybackQueue {
     };
 
     this.currentSource = source;
-    if (!this.started) {
+    const isFirstChunk = !this.started;
+    if (isFirstChunk) {
       this.started = true;
       this.onStarted(item.generation);
     }
-    source.start(0);
+    const delaySeconds = isFirstChunk ? PLAYBACK_START_DELAY_MS / 1000 : 0;
+    source.start(this.audioContext.currentTime + delaySeconds);
   }
 }
 
@@ -613,6 +625,7 @@ export class RealTimeVoiceAssistantLoop {
       let streamedText = '';
       let ttsChain = Promise.resolve();
       let synthesizedAnyAudio = false;
+      let previousSpokenChunk: string | undefined;
 
       await this.consumeLlmStream(llmStream, abortController.signal, async (token) => {
         if (!this.isCurrentEpoch(epoch)) {
@@ -636,12 +649,20 @@ export class RealTimeVoiceAssistantLoop {
               return;
             }
 
-            const audioBytes = await this.synthesizeWithRetry(chunk, abortController.signal, trace);
+            const audioBytes = await this.synthesizeWithRetry(
+              chunk,
+              abortController.signal,
+              trace,
+              {
+                previousText: previousSpokenChunk,
+              },
+            );
             if (!audioBytes || !this.isCurrentEpoch(epoch)) {
               return;
             }
 
             synthesizedAnyAudio = true;
+            previousSpokenChunk = chunk;
             await this.audioQueue.enqueue(audioBytes, audioGeneration);
           });
         }
@@ -659,12 +680,20 @@ export class RealTimeVoiceAssistantLoop {
             return;
           }
 
-          const audioBytes = await this.synthesizeWithRetry(chunk, abortController.signal, trace);
+          const audioBytes = await this.synthesizeWithRetry(
+            chunk,
+            abortController.signal,
+            trace,
+            {
+              previousText: previousSpokenChunk,
+            },
+          );
           if (!audioBytes || !this.isCurrentEpoch(epoch)) {
             return;
           }
 
           synthesizedAnyAudio = true;
+          previousSpokenChunk = chunk;
           await this.audioQueue.enqueue(audioBytes, audioGeneration);
         });
       }
@@ -696,7 +725,14 @@ export class RealTimeVoiceAssistantLoop {
       this.callbacks.onTurnsChanged(this.turns);
 
       if (!synthesizedAnyAudio) {
-        const fullAudio = await this.synthesizeWithRetry(finalText, abortController.signal, trace);
+        const fullAudio = await this.synthesizeWithRetry(
+          finalText,
+          abortController.signal,
+          trace,
+          {
+            previousText: previousSpokenChunk,
+          },
+        );
         if (!this.isCurrentEpoch(epoch)) {
           return;
         }
@@ -730,6 +766,7 @@ export class RealTimeVoiceAssistantLoop {
     text: string,
     signal: AbortSignal,
     trace: PendingLatencyTrace,
+    context?: TtsSynthesisContext,
   ): Promise<ArrayBuffer | null> {
     const normalizedText = normalizeText(text);
     const cached = this.ttsCache.get(normalizedText);
@@ -749,7 +786,7 @@ export class RealTimeVoiceAssistantLoop {
     }
 
     try {
-      const result = await this.ttsClient.synthesize(text, signal);
+      const result = await this.ttsClient.synthesize(text, signal, context);
       this.rememberTts(normalizedText, result);
       if (trace.firstAudioReadyAt === null) {
         trace.firstAudioReadyAt = this.now();
@@ -762,7 +799,7 @@ export class RealTimeVoiceAssistantLoop {
 
       await sleep(120);
       try {
-        const retryResult = await this.ttsClient.synthesize(text, signal);
+        const retryResult = await this.ttsClient.synthesize(text, signal, context);
         this.rememberTts(normalizedText, retryResult);
         if (trace.firstAudioReadyAt === null) {
           trace.firstAudioReadyAt = this.now();
@@ -856,7 +893,7 @@ export class RealTimeVoiceAssistantLoop {
     }
 
     this.memoryStore = updateUserMemoryStore(this.memoryStore, {
-      user_id: this.userId,
+      user_id: this.userId ?? this.sessionId,
       session_id: this.sessionId,
       utterance: {
         id: currentTurn.id,
@@ -1028,6 +1065,8 @@ export const createVoiceAudioLoop = (args: {
   ttsClient: TtsClient;
   callbacks: LoopUiCallbacks;
   sessionId: string;
+  userId?: string;
+  persistenceClient?: SessionPersistenceClient;
   audioContextFactory?: AudioContextFactory;
   nowProvider?: NowProvider;
 }) => {
