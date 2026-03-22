@@ -227,14 +227,14 @@ const VoiceRecorder = ({
         return;
       }
 
-      console.error('Microphone or Deepgram error:', err);
+      console.error('Live voice connection error:', err);
       deepgramRef.current?.disconnect();
       deepgramRef.current = null;
       await cleanupAudioGraph();
       setStatus('idle');
       toast({
-        title: 'Live transcription failed',
-        description: 'Check microphone access and Deepgram credentials, then try again.',
+        title: 'Voice session unavailable',
+        description: 'Please check microphone access and try again.',
         variant: 'destructive',
       });
     }
@@ -362,14 +362,14 @@ const VoiceRecorder = ({
 
       <div className="text-center">
         {status === 'idle' && <p className="text-muted-foreground">Tap to start speaking</p>}
-        {status === 'connecting' && <p className="text-muted-foreground">Connecting to Deepgram...</p>}
+        {status === 'connecting' && <p className="text-muted-foreground">Connecting your voice session...</p>}
         {status === 'recording' && (
           <div className="space-y-1">
-            <p className="font-medium text-primary">Streaming live transcript...</p>
+            <p className="font-medium text-primary">Listening live...</p>
             <p className="font-mono text-sm text-muted-foreground">{formatTime(duration)}</p>
           </div>
         )}
-        {status === 'processing' && <p className="text-muted-foreground">Finalizing transcript...</p>}
+        {status === 'processing' && <p className="text-muted-foreground">Wrapping up your voice note...</p>}
       </div>
     </div>
   );

@@ -50,8 +50,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card p-6">
         <div className="mb-10">
-          <h2 className="text-xl font-bold text-foreground">SereneAI</h2>
-          <p className="text-xs text-muted-foreground mt-1">Your mindful companion</p>
+          <img
+            src="/emoiva-logo.png"
+            alt="Emoiva"
+            className="h-16 w-auto max-w-[190px] object-contain"
+          />
+          <p className="mt-2 text-xs text-muted-foreground">Emotion-aware voice support</p>
         </div>
         <nav className="flex-1 space-y-2">
           {desktopNavItems.map(item => (
@@ -88,9 +92,13 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       {/* Main content */}
       <main className="flex-1 overflow-auto">
         <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:hidden">
-          <div>
-            <h1 className="text-base font-semibold text-foreground">SereneAI</h1>
-            <p className="text-xs text-muted-foreground">Your mindful companion</p>
+          <div className="min-w-0">
+            <img
+              src="/emoiva-logo.png"
+              alt="Emoiva"
+              className="h-10 w-auto max-w-[150px] object-contain"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">Emotion-aware voice support</p>
           </div>
           <button
             type="button"

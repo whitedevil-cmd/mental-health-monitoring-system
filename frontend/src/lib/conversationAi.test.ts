@@ -93,9 +93,11 @@ describe('conversationAi', () => {
     const messages = buildTherapistMessages(input);
 
     expect(messages).toHaveLength(2);
-    expect(messages[0].content).toContain('emotionally attuned');
+    expect(messages[0].content).toContain('AI mental health support companion');
+    expect(messages[0].content).toContain('help the user feel heard, not managed');
     expect(messages[1].content).toContain('"risk_level":"moderate"');
     expect(messages[1].content).toContain('"ask_follow_up_question":true');
+    expect(messages[1].content).toContain('"response_style":"reflective"');
     expect(messages[1].content).toContain('"memory_context"');
     expect(messages[1].content).toContain('"recurring_topics":["work"]');
   });
@@ -177,6 +179,7 @@ describe('conversationAi', () => {
 
   it('keeps the system prompt stable and plain-text oriented', () => {
     expect(THERAPIST_SYSTEM_PROMPT).toContain('return plain text only');
-    expect(THERAPIST_SYSTEM_PROMPT).toContain('never diagnose mental health conditions');
+    expect(THERAPIST_SYSTEM_PROMPT).toContain('never diagnose, label disorders, or claim certainty about mental health conditions');
+    expect(THERAPIST_SYSTEM_PROMPT).toContain('help the user feel heard, not managed');
   });
 });

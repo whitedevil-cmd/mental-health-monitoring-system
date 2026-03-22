@@ -62,8 +62,8 @@ const Profile = () => {
   ];
 
   const supportItems = [
-    { label: 'Help & Support', subtitle: 'Get assistance when you need it', icon: HeartHandshake, to: null },
-    { label: 'Privacy & Terms', subtitle: 'Read how your data is handled', icon: Shield, to: null },
+    { label: 'Help & Support', subtitle: 'Get assistance when you need it', icon: HeartHandshake, to: '/support' },
+    { label: 'Privacy & Terms', subtitle: 'Read how your data is handled', icon: Shield, to: '/privacy' },
   ];
 
   return (
@@ -82,7 +82,7 @@ const Profile = () => {
             <div className="min-w-0">
               <h1 className="truncate text-2xl font-bold text-foreground">{displayName}</h1>
               <p className="truncate text-sm text-muted-foreground">{email}</p>
-              <p className="mt-1 text-sm text-muted-foreground">Your mindful companion</p>
+              <p className="mt-1 text-sm text-muted-foreground">Your Emoiva account</p>
             </div>
           </div>
         </motion.section>
@@ -143,10 +143,10 @@ const Profile = () => {
           </div>
           <div className="overflow-hidden rounded-3xl border border-border bg-card">
             {supportItems.map((entry) => (
-              <button
+              <Link
                 key={entry.label}
-                type="button"
-                className="flex w-full items-center justify-between gap-3 border-b border-border px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-secondary/50"
+                to={entry.to}
+                className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-secondary/50"
               >
                 <div className="flex items-center gap-4">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary text-foreground">
@@ -158,7 +158,7 @@ const Profile = () => {
                   </div>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </button>
+              </Link>
             ))}
           </div>
         </motion.section>

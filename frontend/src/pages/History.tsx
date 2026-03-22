@@ -46,7 +46,7 @@ const History = () => {
       } catch (err) {
         if (!mounted) return;
         console.error('Failed to load history:', err);
-        setError('Unable to load conversation history. Confirm the backend is running on port 8001.');
+        setError('Unable to load conversation history right now. Please try again in a moment.');
       } finally {
         if (mounted) {
           setIsLoading(false);

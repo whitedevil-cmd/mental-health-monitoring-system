@@ -83,7 +83,7 @@ export class DeepgramLiveClient {
   private async openSocketWithFreshToken(retriesRemaining: number): Promise<void> {
     const { token } = await apiClient.getDeepgramToken();
     if (!token) {
-      throw new Error('Backend returned an empty Deepgram token.');
+      throw new Error('Voice session could not be started.');
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -107,11 +107,11 @@ export class DeepgramLiveClient {
 
       socket.onerror = () => {
         if (settled) {
-          this.onError?.('Deepgram streaming connection failed.');
+          this.onError?.('Voice connection failed.');
           return;
         }
         settled = true;
-        reject(new Error('Deepgram streaming connection failed.'));
+        reject(new Error('Voice connection failed.'));
       };
 
       socket.onclose = async (event) => {
@@ -130,12 +130,12 @@ export class DeepgramLiveClient {
               resolve();
               return;
             } catch (error) {
-              reject(error instanceof Error ? error : new Error('Deepgram token refresh failed.'));
+              reject(error instanceof Error ? error : new Error('Voice session refresh failed.'));
               return;
             }
           }
 
-          reject(new Error('Deepgram streaming connection closed before it was established.'));
+          reject(new Error('Voice session closed before it could start.'));
           return;
         }
 
@@ -153,7 +153,7 @@ export class DeepgramLiveClient {
               this.onError?.(
                 error instanceof Error
                   ? error.message
-                  : 'Deepgram streaming reconnection failed.',
+                  : 'Voice session reconnection failed.',
               );
             }
           }
@@ -168,8 +168,8 @@ export class DeepgramLiveClient {
         if (!this.manualClose && opened) {
           this.onError?.(
             event.code === 1008 || event.code === 1011
-              ? 'Deepgram session expired. Start recording again to fetch a fresh token.'
-              : 'Deepgram streaming disconnected. Start recording again if recovery does not complete.',
+              ? 'Your voice session expired. Start again to continue.'
+              : 'Your voice session was interrupted. Start again if it does not recover.',
           );
         }
       };
@@ -243,7 +243,7 @@ export class DeepgramLiveClient {
 
       this.onTranscript(this.getTranscript());
     } catch {
-      this.onError?.('Received an invalid Deepgram transcript message.');
+      this.onError?.('Live transcript data could not be processed.');
     }
   }
 

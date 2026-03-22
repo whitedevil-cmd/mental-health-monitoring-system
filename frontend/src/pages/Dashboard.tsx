@@ -91,7 +91,7 @@ const Dashboard = () => {
           <div className="flex items-start gap-3">
             <Heart className="h-5 w-5 text-accent mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="font-semibold text-foreground mb-1">A note from SereneAI</h3>
+              <h3 className="font-semibold text-foreground mb-1">A note from Emoiva</h3>
               <p className="text-muted-foreground leading-relaxed">
                 I've noticed you've been more at ease this week. Your calm moments are growing, 
                 and that's something to celebrate. Remember — progress isn't always linear, 

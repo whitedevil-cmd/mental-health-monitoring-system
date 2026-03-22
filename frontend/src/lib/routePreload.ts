@@ -4,6 +4,9 @@ const routePreloaders: Record<string, () => Promise<unknown>> = {
   '/insights': () => import('@/pages/Insights'),
   '/history': () => import('@/pages/History'),
   '/profile': () => import('@/pages/Profile'),
+  '/founder': () => import('@/pages/Founder'),
+  '/support': () => import('@/pages/Support'),
+  '/privacy': () => import('@/pages/Privacy'),
 };
 
 export const preloadRoute = (path: string): void => {

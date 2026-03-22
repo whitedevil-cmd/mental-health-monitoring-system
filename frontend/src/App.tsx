@@ -18,6 +18,9 @@ const Voice = lazyWithPreload(() => import('./pages/Voice'));
 const Insights = lazyWithPreload(() => import('./pages/Insights'));
 const History = lazyWithPreload(() => import('./pages/History'));
 const Profile = lazyWithPreload(() => import('./pages/Profile'));
+const Founder = lazyWithPreload(() => import('./pages/Founder'));
+const Support = lazyWithPreload(() => import('./pages/Support'));
+const Privacy = lazyWithPreload(() => import('./pages/Privacy'));
 const NotFound = lazyWithPreload(() => import('./pages/NotFound'));
 
 const queryClient = new QueryClient();
@@ -47,6 +50,9 @@ const App = () => (
               <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/founder" element={<Founder />} />
+              <Route path="/support" element={<Support />} />
+              <Route path="/privacy" element={<Privacy />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
