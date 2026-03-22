@@ -66,7 +66,13 @@ class GeminiStreamService:
         return conversation
 
     @staticmethod
-    def _extract_text_from_chunk(payload: dict[str, object]) -> str:
+    def _extract_text_from_chunk(payload: object) -> str:
+        if isinstance(payload, list):
+            return ''.join(GeminiStreamService._extract_text_from_chunk(item) for item in payload)
+
+        if not isinstance(payload, dict):
+            return ''
+
         texts: list[str] = []
         candidates = payload.get('candidates') or []
         for candidate in candidates:
@@ -82,6 +88,23 @@ class GeminiStreamService:
                     if isinstance(text, str) and text:
                         texts.append(text)
         return ''.join(texts)
+
+    @staticmethod
+    def _parse_sse_event(event_data_lines: list[str]) -> str:
+        if not event_data_lines:
+            return ''
+
+        raw_json = '\n'.join(event_data_lines).strip()
+        if not raw_json:
+            return ''
+
+        try:
+            chunk_payload = json.loads(raw_json)
+        except json.JSONDecodeError:
+            logger.warning('Skipping malformed Gemini stream chunk: %s', raw_json)
+            return ''
+
+        return GeminiStreamService._extract_text_from_chunk(chunk_payload)
 
     async def stream_chat(
         self,
@@ -132,23 +155,27 @@ class GeminiStreamService:
                         status_code=502,
                     )
 
+                event_data_lines: list[str] = []
+
                 async for line in response.aiter_lines():
-                    if not line or not line.startswith('data: '):
+                    if line == '':
+                        text = self._parse_sse_event(event_data_lines)
+                        if text:
+                            yield text
+                        event_data_lines = []
                         continue
 
-                    raw_json = line[6:].strip()
-                    if not raw_json:
+                    if line.startswith(':'):
                         continue
 
-                    try:
-                        chunk_payload = json.loads(raw_json)
-                    except json.JSONDecodeError:
-                        logger.warning('Skipping malformed Gemini stream chunk: %s', raw_json)
+                    if not line.startswith('data:'):
                         continue
 
-                    text = self._extract_text_from_chunk(chunk_payload)
-                    if text:
-                        yield text
+                    event_data_lines.append(line[5:].lstrip())
+
+                text = self._parse_sse_event(event_data_lines)
+                if text:
+                    yield text
         except httpx.HTTPError as exc:
             logger.exception('Gemini streaming request failed: %s', exc)
             raise ServiceError(
