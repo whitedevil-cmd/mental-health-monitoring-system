@@ -1,4 +1,4 @@
-"""Dashboard analytics helpers built on stored emotion logs."""
+"""Dashboard analytics helpers built on stored emotion readings."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from backend.storage.data_backend import StorageBackend
 
 
 class DashboardService:
-    """Read dashboard-friendly analytics from stored detector logs."""
+    """Read dashboard-friendly analytics from stored emotion readings."""
 
     def __init__(self, data_service: StorageBackend | None = None) -> None:
         self._data_service = data_service or StorageBackend()
@@ -27,20 +27,29 @@ class DashboardService:
 
     async def get_history(self, session: object | None = None, user_id: str | None = None) -> list[EmotionHistoryItem]:  # noqa: ARG002
         """Return stored session history ordered from newest to oldest."""
-        logs = await self._list_logs(user_id=user_id)
+        readings = await self._list_readings(user_id=user_id)
         return [
             EmotionHistoryItem(
-                timestamp=log["timestamp"],
-                emotion=str(log.get("dominant_emotion", "")),
-                confidence=self._confidence_for_log(log),
-                transcript=log.get("transcript"),
+                timestamp=reading["created_at"],
+                emotion=str(reading.get("emotion_label", "")),
+                confidence=float(reading.get("confidence") or 0.0),
+                transcript=reading.get("transcript"),
             )
-            for log in logs
+            for reading in readings
         ]
 
     async def _list_logs(self, user_id: str | None = None) -> list[dict]:
         filters = {"user_id": user_id} if user_id else None
         return await self._data_service.select_rows("emotion_logs", eq_filters=filters, order_by="timestamp", desc=True)
+
+    async def _list_readings(self, user_id: str | None = None) -> list[dict]:
+        filters = {"user_id": user_id} if user_id else None
+        return await self._data_service.select_rows(
+            "emotion_readings",
+            eq_filters=filters,
+            order_by="created_at",
+            desc=True,
+        )
 
     @staticmethod
     def _confidence_for_log(log: dict) -> float:
