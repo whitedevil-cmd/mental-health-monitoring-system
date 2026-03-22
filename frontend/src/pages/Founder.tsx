@@ -134,7 +134,7 @@ const Founder = () => {
             <div className="space-y-6">
               <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
                 <Sparkles className="h-4 w-4" />
-                Founder Profile
+                Portfolio
               </div>
               <div className="space-y-3">
                 <h1 className="text-4xl font-extrabold tracking-tight text-foreground md:text-6xl">
@@ -200,11 +200,11 @@ const Founder = () => {
 
             <div className="flex flex-col justify-between gap-6 rounded-[1.75rem] bg-secondary/45 p-6">
               <div className="space-y-4">
-                <div className="rounded-[1.75rem] bg-background/70 p-4">
+                <div className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-background/70">
                   <img
-                    src="/emoiva-logo.png"
-                    alt="Emoiva"
-                    className="h-16 w-auto max-w-[180px] object-contain"
+                    src="/arpit-photo.jpeg"
+                    alt="Arpit Shivhare"
+                    className="h-72 w-full object-cover object-top"
                   />
                 </div>
                 <div>

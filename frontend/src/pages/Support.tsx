@@ -146,12 +146,12 @@ const Support = () => {
             </div>
 
             <div className="glass-card rounded-[2rem] p-6 md:p-8">
-              <h2 className="text-xl font-semibold text-foreground">Founder contact</h2>
+              <h2 className="text-xl font-semibold text-foreground">Portfolio contact</h2>
               <div className="mt-4 space-y-3 text-sm leading-relaxed text-muted-foreground">
                 <p>For partnerships, hiring, product collaboration, or portfolio conversations, contact Arpit Shivhare directly.</p>
                 <div className="flex flex-wrap gap-3 pt-2">
                   <Button variant="soft" asChild>
-                    <Link to="/founder">View Founder Page</Link>
+                    <Link to="/portfolio">View Portfolio</Link>
                   </Button>
                   <Button variant="hero" asChild>
                     <a href="mailto:arpitshivhare525@gmail.com">Start a conversation</a>

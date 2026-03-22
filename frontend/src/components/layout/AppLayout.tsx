@@ -20,6 +20,7 @@ const desktopNavItems = [
   { to: '/voice', label: 'Voice Session', icon: Mic },
   { to: '/insights', label: 'Insights', icon: BarChart3 },
   { to: '/history', label: 'History', icon: MessageSquare },
+  { to: '/profile', label: 'Profile', icon: User },
 ];
 
 const mobileNavItems = [
@@ -48,7 +49,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card p-6">
+      <aside className="hidden md:flex md:w-64 flex-col border-r border-border bg-card p-6">
         <div className="mb-10">
           <img
             src="/emoiva-logo.png"

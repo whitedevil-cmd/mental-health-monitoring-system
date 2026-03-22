@@ -31,7 +31,7 @@ const Landing = () => {
         />
         <div className="flex gap-3">
           <Button variant="ghost" asChild><Link to="/support">Help</Link></Button>
-          <Button variant="ghost" asChild><Link to="/founder">Founder</Link></Button>
+          <Button variant="ghost" asChild><Link to="/portfolio">Portfolio</Link></Button>
           <Button variant="ghost" asChild><Link to="/login">Sign in</Link></Button>
           <Button variant="hero" asChild><Link to="/signup">Get started</Link></Button>
         </div>
@@ -116,7 +116,7 @@ const Landing = () => {
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
             <Link to="/support" className="transition-colors hover:text-foreground">Help</Link>
             <Link to="/privacy" className="transition-colors hover:text-foreground">Privacy & Terms</Link>
-            <Link to="/founder" className="transition-colors hover:text-foreground">Founder</Link>
+            <Link to="/portfolio" className="transition-colors hover:text-foreground">Portfolio</Link>
             <a
               href="https://linkedin.com/in/arpitshivhare/"
               target="_blank"

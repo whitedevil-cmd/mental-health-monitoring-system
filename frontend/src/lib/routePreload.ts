@@ -4,6 +4,7 @@ const routePreloaders: Record<string, () => Promise<unknown>> = {
   '/insights': () => import('@/pages/Insights'),
   '/history': () => import('@/pages/History'),
   '/profile': () => import('@/pages/Profile'),
+  '/portfolio': () => import('@/pages/Founder'),
   '/founder': () => import('@/pages/Founder'),
   '/support': () => import('@/pages/Support'),
   '/privacy': () => import('@/pages/Privacy'),
