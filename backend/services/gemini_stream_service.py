@@ -78,8 +78,8 @@ class GeminiStreamService:
         del user_id
 
         config = types.GenerateContentConfig(
-            temperature=0.7,
-            max_output_tokens=220,
+            temperature=0.5,
+            max_output_tokens=140,
             system_instruction=self._extract_system_instruction(messages),
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
             tool_config=types.ToolConfig(

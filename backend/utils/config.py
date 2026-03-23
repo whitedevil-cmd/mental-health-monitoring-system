@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str | None = "gemini"
     LLM_API_KEY: str | None = None
     GEMINI_API_KEY: str | None = None
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash-lite"
     GEMINI_API_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta"
 
     # Deepgram Speech-to-Text (REST uploads)

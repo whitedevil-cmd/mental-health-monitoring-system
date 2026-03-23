@@ -205,6 +205,48 @@ describe('voiceConversationLoop', () => {
     expect(callbacks.states.at(-1)).toBe('idle');
   });
 
+  it('keeps waiting through a slower Gemini-style chunk gap before completing the reply', async () => {
+    vi.useFakeTimers();
+
+    const callbacks = createCallbacks();
+    const emotionClient: EmotionClient = {
+      analyzeText: vi.fn().mockResolvedValue({ emotion: 'anxious', confidence: 0.79 }),
+    };
+    const llmClient: LlmClient = {
+      streamResponse: vi.fn().mockResolvedValue(
+        createTokenStream(['Take one breath. ', 'You are not behind.'], 4_200),
+      ),
+    };
+    const ttsClient: TtsClient = {
+      synthesize: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    };
+
+    const loop = new RealTimeVoiceAssistantLoop({
+      sessionId: 'session-slow-gemini',
+      emotionClient,
+      llmClient,
+      ttsClient,
+      callbacks,
+      audioContextFactory: () => new FakeAudioContext() as unknown as AudioContext,
+    });
+
+    const pending = loop.handleFinalizedUtterance({
+      id: 'user-slow-gemini',
+      text: 'I feel stuck.',
+    });
+
+    await vi.runAllTimersAsync();
+    await pending;
+
+    expect(callbacks.ready.at(-1)).toBe('Take one breath. You are not behind.');
+    expect(loop.getTurns().at(-1)).toMatchObject({
+      role: 'assistant',
+      text: 'Take one breath. You are not behind.',
+    });
+
+    vi.useRealTimers();
+  });
+
   it('falls back to text when tts synthesis fails', async () => {
     const callbacks = createCallbacks();
     const emotionClient: EmotionClient = {

@@ -12,6 +12,14 @@ let voiceHandlers: {
   onStreamInterrupted?: (payload: { transcript: string }) => void;
 } = {};
 
+let loopControls: {
+  handleUserSpeechStart: ReturnType<typeof vi.fn>;
+  setAssistantState: ((state: 'idle' | 'thinking' | 'speaking') => void) | null;
+} = {
+  handleUserSpeechStart: vi.fn(),
+  setAssistantState: null,
+};
+
 vi.mock('@/components/layout/AppLayout', () => ({
   default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
@@ -202,6 +210,11 @@ vi.mock('@/lib/voiceConversationLoop', () => ({
       onAssistantStateChanged: (state: 'idle' | 'thinking' | 'speaking') => void;
     };
   }) => {
+    const handleUserSpeechStart = vi.fn(() => {
+      epoch += 1;
+      callbacks.onAssistantStateChanged('idle');
+    });
+
     let turns: Array<{
       id: string;
       role: 'user';
@@ -217,11 +230,13 @@ vi.mock('@/lib/voiceConversationLoop', () => ({
       callbacks.onTurnsChanged([...turns]);
     };
 
+    loopControls = {
+      handleUserSpeechStart,
+      setAssistantState: callbacks.onAssistantStateChanged,
+    };
+
     return {
-      handleUserSpeechStart: () => {
-        epoch += 1;
-        callbacks.onAssistantStateChanged('idle');
-      },
+      handleUserSpeechStart,
       handleFinalizedUtterance: async ({
         id,
         text,
@@ -305,6 +320,10 @@ describe('Voice page', () => {
   beforeEach(() => {
     analyzeTextMock.mockReset();
     voiceHandlers = {};
+    loopControls = {
+      handleUserSpeechStart: vi.fn(),
+      setAssistantState: null,
+    };
     vi.useRealTimers();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
@@ -425,6 +444,30 @@ describe('Voice page', () => {
     expect(renderedUtterances).toHaveLength(1);
     expect(screen.getByText('anxious')).toBeInTheDocument();
     expect(screen.getByText('Confidence: 81%')).toBeInTheDocument();
+  });
+
+  it('does not interrupt assistant playback on tiny partial echo fragments', async () => {
+    render(<Voice />);
+
+    act(() => {
+      loopControls.setAssistantState?.('speaking');
+    });
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('ok');
+    });
+
+    expect(loopControls.handleUserSpeechStart).not.toHaveBeenCalled();
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('');
+    });
+
+    act(() => {
+      voiceHandlers.onTranscriptChange?.('I need help now');
+    });
+
+    expect(loopControls.handleUserSpeechStart).toHaveBeenCalledTimes(1);
   });
 
   it('shows immediate pending UI while backend is slow and keeps API calls minimal', async () => {

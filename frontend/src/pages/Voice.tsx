@@ -54,6 +54,8 @@ const isFillerFragment = (value: string): boolean => SHORT_FILLER_PATTERN.test(n
 const endsWithStrongSentence = (value: string): boolean => SENTENCE_END_PATTERN.test(normalizeText(value));
 const endsWithWeakBreak = (value: string): boolean => WEAK_BREAK_PATTERN.test(normalizeText(value));
 const endsWithContinuationCue = (value: string): boolean => CONTINUATION_CUE_PATTERN.test(normalizeText(value));
+const MIN_ASSISTANT_BARGE_IN_WORDS = 3;
+const MIN_ASSISTANT_BARGE_IN_CHARS = 18;
 
 const isAnalyzableUtterance = (transcript: string): boolean => {
   const normalized = normalizeText(transcript);
@@ -71,6 +73,29 @@ const isAnalyzableUtterance = (transcript: string): boolean => {
   }
 
   return normalized.length >= 12 || SENTENCE_END_PATTERN.test(normalized);
+};
+
+const shouldInterruptAssistantForPartial = (
+  partialTranscript: string,
+  assistantState: AssistantResponseState,
+): boolean => {
+  const normalized = normalizeText(partialTranscript);
+  if (!normalized) {
+    return false;
+  }
+
+  if (assistantState !== 'speaking') {
+    return true;
+  }
+
+  if (isFillerFragment(normalized)) {
+    return false;
+  }
+
+  return (
+    countWords(normalized) >= MIN_ASSISTANT_BARGE_IN_WORDS ||
+    normalized.length >= MIN_ASSISTANT_BARGE_IN_CHARS
+  );
 };
 
 const getSegmentationDecision = (
@@ -310,7 +335,7 @@ const Voice = () => {
     latestPartialTranscriptRef.current = nextPartial;
     setPartialTranscript(nextPartial);
 
-    if (!hadPartial && nextPartial) {
+    if (!hadPartial && nextPartial && shouldInterruptAssistantForPartial(nextPartial, assistantState)) {
       if (assistantState === 'speaking') {
         setAssistantDraft('');
       }
