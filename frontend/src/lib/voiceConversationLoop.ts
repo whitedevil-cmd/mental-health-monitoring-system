@@ -119,7 +119,8 @@ const TTS_CHUNK_FALLBACK_CHARS = 140;
 const FIRST_TTS_CHUNK_MIN_CHARS = 72;
 const FIRST_TTS_CHUNK_MIN_WORDS = 10;
 const MAX_TTS_CACHE_ITEMS = 24;
-const LLM_STREAM_IDLE_TIMEOUT_MS = 1_000;
+const LLM_STREAM_FIRST_TOKEN_TIMEOUT_MS = 8_000;
+const LLM_STREAM_IDLE_TIMEOUT_MS = 3_000;
 const PLAYBACK_START_DELAY_MS = 100;
 
 const sleep = (ms: number): Promise<void> =>
@@ -962,10 +963,13 @@ export class RealTimeVoiceAssistantLoop {
       while (true) {
         let result: IteratorResult<string>;
         try {
+          const timeoutMs = sawToken
+            ? LLM_STREAM_IDLE_TIMEOUT_MS
+            : LLM_STREAM_FIRST_TOKEN_TIMEOUT_MS;
           result = await Promise.race([
             iterator.next(),
             waitForAbort(signal),
-            waitForIdleTimeout(LLM_STREAM_IDLE_TIMEOUT_MS),
+            waitForIdleTimeout(timeoutMs),
           ]);
         } catch (error) {
           if (isIdleTimeoutError(error) && sawToken) {

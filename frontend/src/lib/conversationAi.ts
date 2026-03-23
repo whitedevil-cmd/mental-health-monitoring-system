@@ -245,6 +245,8 @@ Therapeutic style:
 - mirror the likely emotional experience without parroting the user's words
 - vary the opening style so replies do not keep starting the same way
 - avoid formulaic openings such as "it sounds like", "that sounds like", "it seems like", or "I understand"
+- never open the first sentence with phrases like "it sounds like", "that sounds like", "it seems like", "it feels like", "what I'm hearing is", "what you're describing is", or "I understand"
+- if your first draft starts with one of those phrases, rewrite it before responding
 - if the user sounds sad, anxious, overwhelmed, ashamed, or stuck, slow down and respond with softness
 - if the user sounds reflective, meet them in reflection before offering a next step
 - if the user sounds neutral, keep the tone lighter and conversational
@@ -349,8 +351,13 @@ export const buildTherapistMessages = <TInput extends MemoryAwareConversationInp
         'it sounds like',
         'that sounds like',
         'it seems like',
+        'it feels like',
+        "what i'm hearing is",
+        "what you're describing is",
         'i understand',
       ],
+      opening_rule:
+        'Start with direct, natural language. Do not begin the first sentence with banned empathy lead-ins or therapist cliches.',
     },
   };
 
@@ -392,9 +399,20 @@ export const postProcessTherapistResponse = (
       .replace(/^it sounds like you(?: are|'re)\s+/i, "You're ")
       .replace(/^it seems like you(?: are|'re)\s+/i, "You're ")
       .replace(/^it feels like you(?: are|'re)\s+/i, "You're ")
+      .replace(/^that sounds like you(?: are|'re)\s+/i, "You're ")
+      .replace(/^what i'm hearing is that you(?: are|'re)\s+/i, "You're ")
+      .replace(/^what you're describing is that you(?: are|'re)\s+/i, "You're ")
+      .replace(/^i understand that you(?: are|'re)\s+/i, "You're ")
       .replace(/^that sounds like\s+/i, 'That feels ')
+      .replace(/^what i'm hearing is that\s+/i, '')
+      .replace(/^what you're describing is that\s+/i, '')
+      .replace(/^what i'm hearing is\s+/i, '')
+      .replace(/^what you're describing is\s+/i, '')
+      .replace(/^i understand that\s+/i, '')
+      .replace(/^i understand\s+/i, '')
       .replace(/^it sounds like\s+/i, '')
       .replace(/^it seems like\s+/i, '')
+      .replace(/^it feels like\s+/i, '')
       .trim();
   });
   const limited = softenedSentences.slice(0, risk === 'high' ? 3 : 4).join(' ').trim();

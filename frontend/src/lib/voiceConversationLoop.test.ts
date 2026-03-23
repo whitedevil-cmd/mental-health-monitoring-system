@@ -696,4 +696,50 @@ describe('voiceConversationLoop', () => {
     expect(callbacks.errors.at(-1)).toContain('Voice playback unavailable');
     expect(callbacks.states.at(-1)).toBe('idle');
   });
+
+  it('waits longer for the first llm token before treating the stream as stalled', async () => {
+    vi.useFakeTimers();
+
+    const callbacks = createCallbacks();
+    const emotionClient: EmotionClient = {
+      analyzeText: vi.fn().mockResolvedValue({ emotion: 'neutral', confidence: 0.64 }),
+    };
+    const llmClient: LlmClient = {
+      streamResponse: vi.fn().mockResolvedValue(
+        (async function* () {
+          await new Promise((resolve) => setTimeout(resolve, 1_500));
+          yield 'I am here with you.';
+        })(),
+      ),
+    };
+    const ttsClient: TtsClient = {
+      synthesize: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    };
+
+    const loop = new RealTimeVoiceAssistantLoop({
+      sessionId: 'session-first-token-timeout',
+      emotionClient,
+      llmClient,
+      ttsClient,
+      callbacks,
+      audioContextFactory: () => new FakeAudioContext() as unknown as AudioContext,
+    });
+
+    const pending = loop.handleFinalizedUtterance({
+      id: 'user-first-token-timeout',
+      text: 'Hello there.',
+    });
+
+    await vi.advanceTimersByTimeAsync(1_600);
+    await pending;
+
+    expect(loop.getTurns()).toHaveLength(2);
+    expect(loop.getTurns()[1]).toMatchObject({
+      role: 'assistant',
+      text: 'I am here with you.',
+    });
+    expect(callbacks.errors).toEqual([]);
+
+    vi.useRealTimers();
+  });
 });

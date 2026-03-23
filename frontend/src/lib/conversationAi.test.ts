@@ -96,10 +96,12 @@ describe('conversationAi', () => {
     expect(messages[0].content).toContain('AI mental health support companion');
     expect(messages[0].content).toContain('help the user feel heard, not managed');
     expect(messages[0].content).toContain('avoid formulaic openings such as "it sounds like"');
+    expect(messages[0].content).toContain('never open the first sentence with phrases like "it sounds like"');
     expect(messages[1].content).toContain('"risk_level":"moderate"');
     expect(messages[1].content).toContain('"ask_follow_up_question":true');
     expect(messages[1].content).toContain('"response_style":"reflective"');
-    expect(messages[1].content).toContain('"avoid_phrases":["it sounds like","that sounds like","it seems like","i understand"]');
+    expect(messages[1].content).toContain(`"avoid_phrases":["it sounds like","that sounds like","it seems like","it feels like","what i'm hearing is","what you're describing is","i understand"]`);
+    expect(messages[1].content).toContain('"opening_rule":"Start with direct, natural language.');
     expect(messages[1].content).toContain('"memory_context"');
     expect(messages[1].content).toContain('"recurring_topics":["work"]');
   });
@@ -213,6 +215,42 @@ describe('conversationAi', () => {
 
     expect(response.startsWith("You're exhausted and stretched thin.")).toBe(true);
     expect(response.toLowerCase()).not.toContain('it sounds like');
+  });
+
+  it('strips a wider set of canned empathy lead-ins from the first sentence', () => {
+    const input = {
+      current_input: {
+        text: 'Everything feels like too much lately.',
+        emotion: 'overwhelmed',
+        confidence: 0.88,
+      },
+      context_window: [],
+      emotion_summary: {
+        latest: 'overwhelmed',
+        dominant_recent: 'overwhelmed',
+        trend: 'stable' as const,
+      },
+      intent_signals: {
+        needs_support: true,
+        uncertainty: false,
+        distress: true,
+        reflection: true,
+        repetitive_thoughts: false,
+      },
+      conversation_state: {
+        turn_count: 1,
+        recent_question_asked: false,
+        guidance_recently_given: false,
+      },
+    };
+
+    const response = postProcessTherapistResponse(
+      "What I'm hearing is that you're carrying too much at once. Taking one slow breath might help you settle a little.",
+      input,
+    );
+
+    expect(response.startsWith("You're carrying too much at once.")).toBe(true);
+    expect(response.toLowerCase()).not.toContain("what i'm hearing is");
   });
 
   it('keeps the system prompt stable and plain-text oriented', () => {
