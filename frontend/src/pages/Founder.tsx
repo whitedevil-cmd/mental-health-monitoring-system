@@ -87,6 +87,42 @@ const certifications = [
   'Advanced Graph Theory Programming Camp by AlgoUniversity',
 ];
 
+const portfolioLinks = [
+  {
+    label: 'Phone',
+    value: '+91-6260962016',
+    href: 'tel:+916260962016',
+    icon: Phone,
+  },
+  {
+    label: 'Email',
+    value: 'arpitshivhare525@gmail.com',
+    href: 'mailto:arpitshivhare525@gmail.com',
+    icon: Mail,
+  },
+  {
+    label: 'GitHub',
+    value: 'github.com/whitedevil-cmd',
+    href: 'https://github.com/whitedevil-cmd',
+    icon: Briefcase,
+    external: true,
+  },
+  {
+    label: 'LinkedIn',
+    value: 'linkedin.com/in/arpitshivhare',
+    href: 'https://linkedin.com/in/arpitshivhare/',
+    icon: Linkedin,
+    external: true,
+  },
+  {
+    label: 'Instagram',
+    value: '@iarpitshivhare',
+    href: 'https://instagram.com/iarpitshivhare',
+    icon: Instagram,
+    external: true,
+  },
+];
+
 const sectionVariants = {
   hidden: { opacity: 0, y: 18 },
   show: { opacity: 1, y: 0, transition: { duration: 0.42 } },
@@ -156,9 +192,96 @@ const Founder = () => {
         >
           <motion.section
             variants={sectionVariants}
-            className="grid gap-6 rounded-[2rem] border border-border/70 bg-card/70 p-6 shadow-xl backdrop-blur md:grid-cols-[1.3fr_0.7fr] md:p-10"
+            className="rounded-[2rem] border border-border/70 bg-card/70 p-5 shadow-xl backdrop-blur md:grid md:gap-6 md:grid-cols-[1.3fr_0.7fr] md:p-10"
           >
-            <div className="space-y-6">
+            <div className="space-y-6 md:hidden">
+              <div className="space-y-4">
+                <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+                  <Sparkles className="h-4 w-4" />
+                  Portfolio
+                </div>
+                <div className="space-y-4">
+                  <h1 className="text-[2.85rem] font-extrabold leading-[0.92] tracking-tight text-foreground">
+                    Arpit Shivhare
+                  </h1>
+                  <p className="text-lg leading-relaxed text-muted-foreground">
+                    Data Science-focused engineering professional with hands-on experience in data
+                    analysis, feature engineering, machine learning, and deployment-ready systems.
+                  </p>
+                  <p className="text-base leading-relaxed text-muted-foreground">
+                    He builds practical AI products that move from notebooks to real users, spanning
+                    predictive modeling, realtime systems, and polished user-facing delivery.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {portfolioLinks.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    target={link.external ? '_blank' : undefined}
+                    rel={link.external ? 'noreferrer' : undefined}
+                    className="block rounded-2xl border border-border bg-background/60 px-4 py-3.5 text-foreground transition-colors hover:bg-secondary/70"
+                  >
+                    <div className="flex items-center gap-3">
+                      <link.icon className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="text-base font-medium">{link.label}</span>
+                      {link.external ? (
+                        <ArrowUpRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+                      ) : null}
+                    </div>
+                    <p className="mt-2 break-words pl-7 text-sm leading-relaxed text-muted-foreground">
+                      {link.value}
+                    </p>
+                  </a>
+                ))}
+              </div>
+
+              <div className="rounded-[1.75rem] bg-secondary/45 p-5">
+                <div className="space-y-4">
+                  <div className="overflow-hidden rounded-[1.5rem] border border-border/70 bg-background/70">
+                    <div className="h-[21rem] overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.9),_rgba(229,231,255,0.65))]">
+                      <img
+                        src="/arpit-photo.jpeg"
+                        alt="Arpit Shivhare"
+                        className="h-full w-full scale-[1.12] object-cover object-[center_10%]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+                      Build Signal
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold text-foreground">Hire him</p>
+                  </div>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    Strong across AI systems, ML workflows, and product-minded engineering delivery.
+                  </p>
+                </div>
+
+                <div className="mt-5 grid gap-3">
+                  <div className="rounded-2xl bg-background/70 p-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <GraduationCap className="h-4 w-4 text-primary" />
+                      Education
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      B.Tech in Computer Science and Engineering
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-background/70 p-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      Location
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">Bhubaneswar, India</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden space-y-6 md:block">
               <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
                 <Sparkles className="h-4 w-4" />
                 Portfolio
@@ -225,7 +348,7 @@ const Founder = () => {
               </div>
             </div>
 
-            <div className="flex flex-col justify-between gap-6 rounded-[1.75rem] bg-secondary/45 p-6">
+            <div className="hidden md:flex md:flex-col md:justify-between md:gap-6 rounded-[1.75rem] bg-secondary/45 p-6">
               <div className="space-y-4">
                 <div className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-background/70">
                   <img
