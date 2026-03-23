@@ -37,3 +37,11 @@ class ConversationRepository:
             desc=True,
             limit=limit,
         )
+
+    async def list_conversations_for_user(self, user_id: str) -> list[dict]:
+        return await self._data_backend.select_rows(
+            "conversation_memories",
+            eq_filters={"user_id": user_id},
+            order_by="created_at",
+            desc=False,
+        )

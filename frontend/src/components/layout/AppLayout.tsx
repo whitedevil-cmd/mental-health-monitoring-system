@@ -175,7 +175,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
           transition={{ duration: 0.3 }}
           className="p-4 md:p-8 max-w-6xl mx-auto pb-24 md:pb-8"
         >
-          <BackButton fallbackTo="/dashboard" className="mb-4" />
+          <div className="mb-5 flex items-center md:hidden">
+            <BackButton
+              fallbackTo="/dashboard"
+              className="-ml-2 px-2.5 text-[15px]"
+            />
+          </div>
           {children}
         </motion.div>
       </main>

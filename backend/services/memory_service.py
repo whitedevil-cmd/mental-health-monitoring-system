@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from backend.services.conversation_payload_codec import decode_transcript_payload
 from backend.storage.repositories.conversation_repository import ConversationRepository
 from backend.storage.repositories.emotion_repository import EmotionRepository
 from backend.utils.errors import DatabaseOperationError
@@ -28,7 +29,8 @@ class MemoryService:
 
         lines: list[str] = []
         for conversation in reversed(conversations):
-            transcript = (conversation.get("transcript") or "").strip() or "No transcript available"
+            decoded = decode_transcript_payload(conversation.get("transcript"))
+            transcript = (decoded.get("text") or "").strip() or "No transcript available"
             lines.append(f'User said: "{transcript}"')
             lines.append(f"Emotion: {conversation.get('detected_emotion', 'unknown')}")
         return "\n".join(lines)

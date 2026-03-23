@@ -108,6 +108,17 @@ export interface SessionPersistenceClient {
     id?: number;
     created_at?: string;
   }>;
+  saveConversation?(payload: {
+    user_id: string;
+    session_id: string;
+    transcript: string;
+    detected_emotion: string;
+    confidence: number | null;
+    ai_response: string;
+  }): Promise<{
+    id?: number | string | null;
+    created_at?: string;
+  }>;
 }
 
 type AudioContextFactory = () => AudioContext;
@@ -465,6 +476,7 @@ export class RealTimeVoiceAssistantLoop {
   private memoryStore: UserMemoryStore;
   private storedUserTurnIds = new Set<string>();
   private savedUserTurnIds = new Set<string>();
+  private savedConversationTurnIds = new Set<string>();
   private activeSpeechStartedAt: number | null = null;
   private pendingLatencyByGeneration = new Map<number, PendingLatencyTrace>();
   private ttsCache = new Map<string, ArrayBuffer>();
@@ -724,6 +736,13 @@ export class RealTimeVoiceAssistantLoop {
 
       this.turns = [...this.turns, assistantTurn];
       this.callbacks.onTurnsChanged(this.turns);
+      void this.saveConversationForTurn({
+        turnId: userTurn.id,
+        transcript: userTurn.text,
+        detectedEmotion: input.current_input.emotion,
+        confidence: input.current_input.confidence,
+        aiResponse: finalText,
+      });
 
       if (!synthesizedAnyAudio) {
         const fullAudio = await this.synthesizeWithRetry(
@@ -948,6 +967,40 @@ export class RealTimeVoiceAssistantLoop {
     } catch (error) {
       this.savedUserTurnIds.delete(args.turnId);
       console.error('Save session failed:', error);
+    }
+  }
+
+  private async saveConversationForTurn(args: {
+    turnId: string;
+    transcript: string;
+    detectedEmotion: string | null;
+    confidence: number | null;
+    aiResponse: string;
+  }): Promise<void> {
+    if (
+      !this.userId ||
+      !this.persistenceClient.saveConversation ||
+      !args.detectedEmotion ||
+      !args.aiResponse.trim() ||
+      this.savedConversationTurnIds.has(args.turnId)
+    ) {
+      return;
+    }
+
+    this.savedConversationTurnIds.add(args.turnId);
+
+    try {
+      await this.persistenceClient.saveConversation({
+        user_id: this.userId,
+        session_id: this.sessionId,
+        transcript: args.transcript,
+        detected_emotion: args.detectedEmotion,
+        confidence: args.confidence,
+        ai_response: args.aiResponse,
+      });
+    } catch (error) {
+      this.savedConversationTurnIds.delete(args.turnId);
+      console.error('Save conversation failed:', error);
     }
   }
 

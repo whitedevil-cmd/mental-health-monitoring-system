@@ -1,184 +1,321 @@
 import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Loader2, MessageSquare, MessageSquareText } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
-import { MessageSquare, ChevronRight, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  apiClient,
+  type ConversationSessionDetailResponse,
+  type ConversationSessionSummaryResponse,
+} from '@/lib/apiClient';
 import { EMOTION_COLORS } from '@/types';
-import { apiClient, HistoryResponseItem } from '@/lib/apiClient';
 
-type HistoryConversation = {
+type SessionSummary = {
   id: string;
-  date: string;
-  dominant_emotion: string;
-  transcript: string;
-  confidence: number;
+  startedAt: string;
+  updatedAt: string;
+  dominantEmotion: string;
+  preview: string;
+  turnCount: number;
+};
+
+type SessionTurn = {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
+  emotion: string | null;
+  confidence: number | null;
+};
+
+type SessionDetail = SessionSummary & {
+  turns: SessionTurn[];
 };
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
 const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
 
-const mapHistoryItem = (entry: HistoryResponseItem): HistoryConversation => ({
-  id: `${entry.timestamp}-${entry.emotion}`,
-  date: entry.timestamp,
-  dominant_emotion: entry.emotion,
-  transcript: entry.transcript?.trim() || 'No transcript available for this session.',
-  confidence: entry.confidence,
+const mapSummary = (entry: ConversationSessionSummaryResponse): SessionSummary => ({
+  id: entry.id,
+  startedAt: entry.started_at,
+  updatedAt: entry.updated_at,
+  dominantEmotion: entry.dominant_emotion || 'neutral',
+  preview: entry.preview?.trim() || 'No messages captured for this session.',
+  turnCount: entry.turn_count,
 });
+
+const mapDetail = (entry: ConversationSessionDetailResponse): SessionDetail => ({
+  ...mapSummary(entry),
+  turns: entry.turns.map((turn) => ({
+    id: turn.id,
+    role: turn.role,
+    text: turn.text,
+    timestamp: turn.timestamp,
+    emotion: turn.emotion,
+    confidence: turn.confidence,
+  })),
+});
+
+const formatSessionDate = (value: string) =>
+  new Date(value).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+const formatSessionTime = (value: string) =>
+  new Date(value).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 
 const History = () => {
   const { user } = useAuth();
-  const [selected, setSelected] = useState<string | null>(null);
-  const [history, setHistory] = useState<HistoryConversation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+  const { sessionId } = useParams<{ sessionId?: string }>();
+
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [activeSession, setActiveSession] = useState<SessionDetail | null>(null);
+  const [isLoadingList, setIsLoadingList] = useState(true);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
-    const loadHistory = async () => {
+    const loadSessions = async () => {
+      if (!user?.id) {
+        if (mounted) {
+          setSessions([]);
+          setIsLoadingList(false);
+        }
+        return;
+      }
+
       try {
-        setIsLoading(true);
+        setIsLoadingList(true);
         setError(null);
-        const entries = await apiClient.getHistory(user?.id ?? undefined);
-        if (!mounted) return;
-        setHistory(entries.map(mapHistoryItem));
+        const entries = await apiClient.getConversationSessions(user.id);
+        if (!mounted) {
+          return;
+        }
+        setSessions(entries.map(mapSummary));
       } catch (err) {
-        if (!mounted) return;
-        console.error('Failed to load history:', err);
-        setError('Unable to load conversation history right now. Please try again in a moment.');
+        if (!mounted) {
+          return;
+        }
+        console.error('Failed to load conversation sessions:', err);
+        setError('Unable to load saved conversations right now. Please try again in a moment.');
       } finally {
         if (mounted) {
-          setIsLoading(false);
+          setIsLoadingList(false);
         }
       }
     };
 
-    void loadHistory();
+    void loadSessions();
 
     return () => {
       mounted = false;
     };
   }, [user?.id]);
 
-  const activeConvo = history.find((c) => c.id === selected) || null;
+  useEffect(() => {
+    let mounted = true;
+
+    const loadSessionDetail = async () => {
+      if (!sessionId) {
+        setActiveSession(null);
+        return;
+      }
+
+      if (!user?.id) {
+        if (mounted) {
+          setActiveSession(null);
+          setIsLoadingDetail(false);
+        }
+        return;
+      }
+
+      try {
+        setIsLoadingDetail(true);
+        setError(null);
+        const entry = await apiClient.getConversationSession(user.id, sessionId);
+        if (!mounted) {
+          return;
+        }
+        setActiveSession(mapDetail(entry));
+      } catch (err) {
+        if (!mounted) {
+          return;
+        }
+        console.error('Failed to load conversation detail:', err);
+        setActiveSession(null);
+        setError('Unable to open that conversation right now. Please try again.');
+      } finally {
+        if (mounted) {
+          setIsLoadingDetail(false);
+        }
+      }
+    };
+
+    void loadSessionDetail();
+
+    return () => {
+      mounted = false;
+    };
+  }, [sessionId, user?.id]);
+
+  const renderEmptyState = (
+    <motion.div variants={item} className="glass-card rounded-2xl p-10 text-center text-muted-foreground">
+      No saved conversations yet. Finish a voice session and it will appear here as one chat log.
+    </motion.div>
+  );
+
+  const renderLoadingState = (
+    <motion.div
+      variants={item}
+      className="glass-card rounded-2xl p-10 flex items-center justify-center gap-3 text-muted-foreground"
+    >
+      <Loader2 className="h-5 w-5 animate-spin" />
+      <span>{sessionId ? 'Opening conversation...' : 'Loading saved conversations...'}</span>
+    </motion.div>
+  );
 
   return (
     <AppLayout>
       <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-        <motion.div variants={item}>
-          <h1 className="text-3xl font-bold text-foreground">Conversation History</h1>
-          <p className="text-muted-foreground mt-1">Revisit your past conversations</p>
+        <motion.div variants={item} className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Conversation History</h1>
+            <p className="mt-1 text-muted-foreground">
+              {sessionId ? 'Open a saved session and read it like a chat.' : 'Each completed session is saved as one conversation log.'}
+            </p>
+          </div>
+          {sessionId ? (
+            <Button variant="outline" onClick={() => navigate('/history')} className="shrink-0">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Logs
+            </Button>
+          ) : null}
         </motion.div>
 
-        {isLoading ? (
-          <motion.div variants={item} className="glass-card rounded-2xl p-10 flex items-center justify-center gap-3 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Loading past conversations...</span>
-          </motion.div>
-        ) : error ? (
+        {error ? (
           <motion.div variants={item} className="glass-card rounded-2xl p-6 border border-destructive/20 text-destructive">
             {error}
           </motion.div>
-        ) : history.length === 0 ? (
-          <motion.div variants={item} className="glass-card rounded-2xl p-10 text-center text-muted-foreground">
-            No conversation history yet. Record a voice session and it will appear here.
-          </motion.div>
+        ) : null}
+
+        {sessionId ? (
+          isLoadingDetail ? (
+            renderLoadingState
+          ) : activeSession ? (
+            <motion.div variants={item} className="glass-card rounded-3xl p-4 md:p-6">
+              <div className="border-b border-border/50 pb-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span
+                    className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold capitalize"
+                    style={{
+                      color: EMOTION_COLORS[activeSession.dominantEmotion] || EMOTION_COLORS.neutral,
+                      backgroundColor: `${EMOTION_COLORS[activeSession.dominantEmotion] || EMOTION_COLORS.neutral}20`,
+                    }}
+                  >
+                    {activeSession.dominantEmotion}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatSessionDate(activeSession.startedAt)}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {activeSession.turnCount} messages
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Started {formatSessionTime(activeSession.startedAt)} and last updated {formatSessionTime(activeSession.updatedAt)}.
+                </p>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                {activeSession.turns.map((turn) => {
+                  const isUser = turn.role === 'user';
+                  return (
+                    <div key={turn.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        className={`max-w-[85%] rounded-3xl px-4 py-3 shadow-sm md:max-w-[75%] ${
+                          isUser
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary/80 text-foreground'
+                        }`}
+                      >
+                        <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide opacity-75">
+                          <span>{isUser ? 'You' : 'Assistant'}</span>
+                          <span>{formatSessionTime(turn.timestamp)}</span>
+                          {isUser && turn.emotion ? (
+                            <span className="capitalize">
+                              {turn.emotion}
+                              {turn.confidence !== null ? ` ${Math.round(turn.confidence * 100)}%` : ''}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="whitespace-pre-wrap leading-relaxed">{turn.text}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div variants={item} className="glass-card rounded-2xl p-10 text-center text-muted-foreground">
+              This conversation could not be found. Go back to the history list and open another one.
+            </motion.div>
+          )
+        ) : isLoadingList ? (
+          renderLoadingState
+        ) : sessions.length === 0 ? (
+          renderEmptyState
         ) : (
           <div className="grid gap-3">
-            {history.map((c) => (
+            {sessions.map((session) => (
               <motion.button
-                key={c.id}
+                key={session.id}
                 variants={item}
-                onClick={() => setSelected(c.id)}
-                className="w-full glass-card rounded-2xl p-5 text-left hover:shadow-lg transition-shadow group"
+                onClick={() => navigate(`/history/${encodeURIComponent(session.id)}`)}
+                className="w-full rounded-2xl border border-border/50 bg-card/80 p-5 text-left transition hover:border-primary/30 hover:shadow-lg"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: `${EMOTION_COLORS[c.dominant_emotion] || EMOTION_COLORS.neutral}20` }}
-                    >
-                      <MessageSquare className="h-5 w-5" style={{ color: EMOTION_COLORS[c.dominant_emotion] || EMOTION_COLORS.neutral }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(c.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                        </span>
-                        <span
-                          className="text-xs px-2 py-0.5 rounded-full bg-secondary capitalize font-medium"
-                          style={{ color: EMOTION_COLORS[c.dominant_emotion] || EMOTION_COLORS.neutral }}
-                        >
-                          {c.dominant_emotion}
-                        </span>
-                      </div>
-                      <p className="text-foreground truncate">{c.transcript}</p>
-                    </div>
+                <div className="flex items-start gap-4">
+                  <div
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+                    style={{
+                      backgroundColor: `${EMOTION_COLORS[session.dominantEmotion] || EMOTION_COLORS.neutral}20`,
+                    }}
+                  >
+                    <MessageSquareText
+                      className="h-5 w-5"
+                      style={{ color: EMOTION_COLORS[session.dominantEmotion] || EMOTION_COLORS.neutral }}
+                    />
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 ml-2" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm text-muted-foreground">{formatSessionDate(session.startedAt)}</span>
+                      <span
+                        className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium capitalize"
+                        style={{ color: EMOTION_COLORS[session.dominantEmotion] || EMOTION_COLORS.neutral }}
+                      >
+                        {session.dominantEmotion}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{session.turnCount} messages</span>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-foreground">{session.preview}</p>
+                  </div>
+                  <MessageSquare className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
                 </div>
               </motion.button>
             ))}
           </div>
         )}
       </motion.div>
-
-      <AnimatePresence>
-        {activeConvo && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-foreground/20 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() => setSelected(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="glass-card rounded-3xl p-6 md:p-8 max-w-2xl w-full max-h-[80vh] overflow-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(activeConvo.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span
-                      className="text-xs px-2 py-0.5 rounded-full bg-secondary capitalize font-medium"
-                      style={{ color: EMOTION_COLORS[activeConvo.dominant_emotion] || EMOTION_COLORS.neutral }}
-                    >
-                      {activeConvo.dominant_emotion}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {Math.round(activeConvo.confidence * 100)}% confidence
-                    </span>
-                  </div>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => setSelected(null)}>
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
-
-              <div className="space-y-5">
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">What you said</h3>
-                  <p className="text-foreground leading-relaxed whitespace-pre-wrap">{activeConvo.transcript}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Emotion Summary</h3>
-                  <p className="text-foreground leading-relaxed capitalize">
-                    Dominant emotion: {activeConvo.dominant_emotion} ({Math.round(activeConvo.confidence * 100)}% confidence)
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </AppLayout>
   );
 };

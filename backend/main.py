@@ -17,7 +17,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.api import emotion_routes
-from backend.api.v1 import routes_assistant, routes_audio, routes_emotions, routes_insights, routes_transcribe, routes_voice_stream
+from backend.api.v1 import (
+    routes_assistant,
+    routes_audio,
+    routes_conversations,
+    routes_emotions,
+    routes_insights,
+    routes_transcribe,
+    routes_voice_stream,
+)
 from backend.models.schemas.emotion import EmotionHistoryItem, EmotionInsightsSummary
 from backend.services.audio_service import AudioService
 from backend.services.dashboard_service import DashboardService
@@ -150,6 +158,7 @@ def create_app() -> FastAPI:
 
     app.include_router(routes_audio.router, prefix="/api/v1")
     app.include_router(routes_assistant.router, prefix="/api/v1")
+    app.include_router(routes_conversations.router, prefix="/api/v1")
     app.include_router(routes_emotions.router, prefix="/api/v1")
     app.include_router(routes_insights.router, prefix="/api/v1")
     app.include_router(routes_voice_stream.router, prefix="/api/v1")

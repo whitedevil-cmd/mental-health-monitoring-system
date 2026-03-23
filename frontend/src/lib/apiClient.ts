@@ -27,6 +27,28 @@ export interface HistoryResponseItem {
   transcript: string | null;
 }
 
+export interface ConversationSessionSummaryResponse {
+  id: string;
+  started_at: string;
+  updated_at: string;
+  dominant_emotion: string | null;
+  preview: string;
+  turn_count: number;
+}
+
+export interface ConversationTurnResponse {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
+  emotion: string | null;
+  confidence: number | null;
+}
+
+export interface ConversationSessionDetailResponse extends ConversationSessionSummaryResponse {
+  turns: ConversationTurnResponse[];
+}
+
 export interface DeepgramTokenResponse {
   token: string;
   expires_in: number;
@@ -52,6 +74,26 @@ export interface SaveSessionResponse {
   emotion_label: string;
   confidence: number | null;
   transcript: string | null;
+  created_at: string;
+}
+
+export interface SaveConversationPayload {
+  user_id: string;
+  session_id: string;
+  transcript: string;
+  detected_emotion: string;
+  confidence: number | null;
+  ai_response: string;
+}
+
+export interface SaveConversationResponse {
+  id: number | string | null;
+  user_id: string;
+  session_id: string;
+  transcript: string;
+  detected_emotion: string;
+  confidence: number | null;
+  ai_response: string;
   created_at: string;
 }
 
@@ -123,6 +165,28 @@ class ApiClient {
         confidence: payload.confidence,
         transcript: payload.text,
       }),
+    });
+  }
+
+  async getConversationSessions(userId: string): Promise<ConversationSessionSummaryResponse[]> {
+    return this.request<ConversationSessionSummaryResponse[]>(
+      `/api/v1/conversations?user_id=${encodeURIComponent(userId)}`,
+    );
+  }
+
+  async getConversationSession(
+    userId: string,
+    sessionId: string,
+  ): Promise<ConversationSessionDetailResponse> {
+    return this.request<ConversationSessionDetailResponse>(
+      `/api/v1/conversations/${encodeURIComponent(sessionId)}?user_id=${encodeURIComponent(userId)}`,
+    );
+  }
+
+  async saveConversation(payload: SaveConversationPayload): Promise<SaveConversationResponse> {
+    return this.request<SaveConversationResponse>('/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   }
 }

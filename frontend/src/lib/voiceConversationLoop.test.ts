@@ -99,8 +99,13 @@ const createTokenStream = async function* (tokens: string[], pauseMs = 0): Async
 
 const createPersistenceClient = (): SessionPersistenceClient & {
   saveSession: ReturnType<typeof vi.fn>;
+  saveConversation: ReturnType<typeof vi.fn>;
 } => ({
   saveSession: vi.fn().mockResolvedValue({
+    id: 1,
+    created_at: '2026-03-22T12:00:00Z',
+  }),
+  saveConversation: vi.fn().mockResolvedValue({
     id: 1,
     created_at: '2026-03-22T12:00:00Z',
   }),
@@ -401,6 +406,47 @@ describe('voiceConversationLoop', () => {
       emotion: 'sad',
       confidence: 0.84,
       timestamp: '2026-03-22T12:00:00Z',
+    });
+  });
+
+  it('persists the full user and assistant exchange once a response is ready', async () => {
+    const callbacks = createCallbacks();
+    const emotionClient: EmotionClient = {
+      analyzeText: vi.fn().mockResolvedValue({ emotion: 'sad', confidence: 0.84 }),
+    };
+    const llmClient: LlmClient = {
+      streamResponse: vi.fn().mockResolvedValue(createTokenStream(['I am here with you.'])),
+    };
+    const ttsClient: TtsClient = {
+      synthesize: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+    };
+    const persistenceClient = createPersistenceClient();
+
+    const loop = new RealTimeVoiceAssistantLoop({
+      sessionId: 'session-conversation-1',
+      userId: 'user-42',
+      emotionClient,
+      llmClient,
+      ttsClient,
+      persistenceClient,
+      callbacks,
+      audioContextFactory: () => new FakeAudioContext() as unknown as AudioContext,
+    });
+
+    await loop.handleFinalizedUtterance({
+      id: 'user-conversation-1',
+      text: 'I feel low today.',
+      timestamp: '2026-03-22T12:00:00Z',
+    });
+
+    expect(persistenceClient.saveConversation).toHaveBeenCalledTimes(1);
+    expect(persistenceClient.saveConversation).toHaveBeenCalledWith({
+      user_id: 'user-42',
+      session_id: 'session-conversation-1',
+      transcript: 'I feel low today.',
+      detected_emotion: 'sad',
+      confidence: 0.84,
+      ai_response: 'I am here with you.',
     });
   });
 

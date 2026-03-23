@@ -102,24 +102,47 @@ const Founder = () => {
       </div>
 
       <header className="relative z-10 px-6 py-6 md:px-12">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <BackButton fallbackTo="/" />
-            <Link to="/" className="inline-flex items-center">
-              <img
-                src="/emoiva-logo.png"
-                alt="Emoiva"
-                className="h-12 w-auto max-w-[220px] object-contain md:h-14"
-              />
-            </Link>
+        <div className="mx-auto max-w-6xl">
+          <div className="space-y-4 md:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <BackButton fallbackTo="/" className="-ml-2 px-2.5 text-[15px]" />
+              <Link to="/" className="inline-flex min-w-0 items-center justify-end">
+                <img
+                  src="/emoiva-logo.png"
+                  alt="Emoiva"
+                  className="h-11 w-auto max-w-[170px] object-contain"
+                />
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="ghost" asChild className="h-11 w-full rounded-2xl">
+                <Link to="/support">Contact</Link>
+              </Button>
+              <Button variant="hero" asChild className="h-11 w-full rounded-2xl">
+                <a href="mailto:arpitshivhare525@gmail.com">Hire Him</a>
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" asChild>
-              <Link to="/support">Contact</Link>
-            </Button>
-            <Button variant="hero" asChild>
-              <a href="mailto:arpitshivhare525@gmail.com">Hire Him</a>
-            </Button>
+
+          <div className="hidden items-center justify-between md:flex">
+            <div className="flex items-center gap-3">
+              <BackButton fallbackTo="/" />
+              <Link to="/" className="inline-flex items-center">
+                <img
+                  src="/emoiva-logo.png"
+                  alt="Emoiva"
+                  className="h-12 w-auto max-w-[220px] object-contain md:h-14"
+                />
+              </Link>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" asChild>
+                <Link to="/support">Contact</Link>
+              </Button>
+              <Button variant="hero" asChild>
+                <a href="mailto:arpitshivhare525@gmail.com">Hire Him</a>
+              </Button>
+            </div>
           </div>
         </div>
       </header>
