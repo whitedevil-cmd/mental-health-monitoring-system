@@ -81,6 +81,10 @@ class GeminiStreamService:
             temperature=0.7,
             max_output_tokens=220,
             system_instruction=self._extract_system_instruction(messages),
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            tool_config=types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(mode="NONE"),
+            ),
         )
 
         client = self._get_client(self._api_key)
@@ -94,6 +98,21 @@ class GeminiStreamService:
 
             async for chunk in stream:
                 text = getattr(chunk, "text", None)
+                finish_reason = None
+                prompt_feedback = getattr(chunk, "prompt_feedback", None)
+                usage_metadata = getattr(chunk, "usage_metadata", None)
+                candidates = getattr(chunk, "candidates", None) or []
+                if candidates:
+                    finish_reason = getattr(candidates[0], "finish_reason", None)
+
+                if finish_reason or prompt_feedback or usage_metadata:
+                    logger.info(
+                        "Gemini stream chunk metadata finish_reason=%s prompt_feedback=%r usage_metadata=%r",
+                        finish_reason,
+                        prompt_feedback,
+                        usage_metadata,
+                    )
+
                 if text:
                     yield text
         except Exception as exc:  # pragma: no cover - provider failures are environment-specific
