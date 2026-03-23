@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timedelta
+import re
 from typing import Any
 
 from backend.models.schemas.conversation import (
@@ -21,12 +22,39 @@ from backend.storage.repositories.conversation_repository import ConversationRep
 from backend.storage.repositories.emotion_repository import EmotionRepository
 
 SESSION_GAP = timedelta(minutes=30)
+TURN_MATCH_WINDOW = timedelta(minutes=3)
+
+
+def _normalize_text(value: Any) -> str:
+    return " ".join(str(value or "").split()).strip().casefold()
 
 
 def _parse_datetime(value: Any) -> datetime:
     if isinstance(value, datetime):
         return value
-    return datetime.fromisoformat(str(value))
+
+    normalized = str(value).strip()
+    if not normalized:
+        raise ValueError("Missing datetime value.")
+
+    normalized = normalized.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        # Some persisted rows arrive with fractional seconds that need normalizing
+        # before Python's ISO parser will accept them consistently.
+        match = re.match(
+            r"^(?P<prefix>\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2})(?:\.(?P<fraction>\d+))?(?P<suffix>(?:[+-]\d{2}:\d{2})?)$",
+            normalized,
+        )
+        if not match:
+            raise
+
+        prefix = match.group("prefix")
+        fraction = (match.group("fraction") or "")[:6].ljust(6, "0")
+        suffix = match.group("suffix") or ""
+        repaired = f"{prefix}.{fraction}{suffix}" if fraction else f"{prefix}{suffix}"
+        return datetime.fromisoformat(repaired)
 
 
 class ConversationHistoryService:
@@ -95,11 +123,12 @@ class ConversationHistoryService:
 
     async def _load_grouped_sessions(self, user_id: str) -> list[dict[str, Any]]:
         conversations = await self._conversation_repo.list_conversations_for_user(user_id)
-        if conversations:
-            return self._group_conversation_rows(conversations)
-
         readings = await self._emotion_repo.list_readings_for_user(user_id)
-        return self._group_legacy_readings(readings)
+        if not conversations:
+            return self._group_legacy_readings(readings)
+
+        grouped = self._group_conversation_rows(conversations)
+        return self._merge_legacy_readings(grouped, readings)
 
     def _group_conversation_rows(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         sessions: list[dict[str, Any]] = []
@@ -169,7 +198,7 @@ class ConversationHistoryService:
     def _group_legacy_readings(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         sessions: list[dict[str, Any]] = []
         for row in reversed(rows):
-            created_at = _parse_datetime(row.get("created_at"))
+            created_at = _parse_datetime(row.get("created_at") or row.get("timestamp"))
             emotion = str(row.get("emotion_label") or "").strip() or None
             transcript = str(row.get("transcript") or "").strip() or "No transcript available."
             row_id = str(row.get("id") or created_at.isoformat())
@@ -194,15 +223,154 @@ class ConversationHistoryService:
             sessions.append(self._finalize_session(session))
         return sessions
 
+    def _merge_legacy_readings(
+        self,
+        sessions: list[dict[str, Any]],
+        rows: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        if not rows:
+            return sessions
+
+        hydrated = [self._hydrate_session(session) for session in sessions]
+
+        sorted_rows = sorted(
+            rows,
+            key=lambda row: _parse_datetime(row.get("created_at") or row.get("timestamp")),
+        )
+
+        for row in sorted_rows:
+            created_at = _parse_datetime(row.get("created_at") or row.get("timestamp"))
+            transcript = str(row.get("transcript") or "").strip() or "No transcript available."
+            normalized_transcript = _normalize_text(transcript)
+            emotion = str(row.get("emotion_label") or "").strip() or None
+            confidence_raw = row.get("confidence")
+            confidence = float(confidence_raw) if confidence_raw is not None else None
+            row_id = str(row.get("id") or created_at.isoformat())
+
+            matched = self._find_matching_user_turn(
+                hydrated,
+                normalized_transcript=normalized_transcript,
+                created_at=created_at,
+            )
+            if matched is not None:
+                matched_session, matched_turn = matched
+                if emotion and not matched_turn.emotion:
+                    matched_turn.emotion = emotion
+                if confidence is not None and matched_turn.confidence is None:
+                    matched_turn.confidence = confidence
+                if created_at < matched_turn.timestamp:
+                    matched_turn.timestamp = created_at
+                    matched_session["started_at"] = min(matched_session["started_at"], created_at)
+                matched_session["updated_at"] = max(
+                    matched_session["updated_at"],
+                    matched_turn.timestamp,
+                )
+                if emotion:
+                    matched_session["emotions"].append(emotion)
+                continue
+
+            target_session = self._find_session_for_unmatched_reading(hydrated, created_at)
+            if target_session is None:
+                target_session = {
+                    "id": f"legacy-reading-{row_id}",
+                    "started_at": created_at,
+                    "updated_at": created_at,
+                    "preview": transcript,
+                    "emotions": [emotion] if emotion else [],
+                    "turns": [],
+                }
+                hydrated.append(target_session)
+
+            target_session["turns"].append(
+                ConversationTurn(
+                    id=f"user-{row_id}",
+                    role="user",
+                    text=transcript,
+                    timestamp=created_at,
+                    emotion=emotion,
+                    confidence=confidence,
+                )
+            )
+            if emotion:
+                target_session["emotions"].append(emotion)
+            target_session["started_at"] = min(target_session["started_at"], created_at)
+            target_session["updated_at"] = max(target_session["updated_at"], created_at)
+
+        finalized = [self._finalize_session(session) for session in hydrated]
+        return sorted(finalized, key=lambda session: session["updated_at"], reverse=True)
+
+    @staticmethod
+    def _hydrate_session(session: dict[str, Any]) -> dict[str, Any]:
+        turns = list(session.get("turns", []))
+        emotions = [
+            turn.emotion
+            for turn in turns
+            if isinstance(turn, ConversationTurn) and turn.role == "user" and turn.emotion
+        ]
+        return {
+            "id": session["id"],
+            "started_at": session["started_at"],
+            "updated_at": session["updated_at"],
+            "preview": session["preview"],
+            "turns": turns,
+            "emotions": emotions,
+        }
+
+    @staticmethod
+    def _find_matching_user_turn(
+        sessions: list[dict[str, Any]],
+        *,
+        normalized_transcript: str,
+        created_at: datetime,
+    ) -> tuple[dict[str, Any], ConversationTurn] | None:
+        for session in sessions:
+            for turn in session.get("turns", []):
+                if turn.role != "user":
+                    continue
+                if _normalize_text(turn.text) != normalized_transcript:
+                    continue
+                if abs(turn.timestamp - created_at) > TURN_MATCH_WINDOW:
+                    continue
+                return session, turn
+        return None
+
+    @staticmethod
+    def _find_session_for_unmatched_reading(
+        sessions: list[dict[str, Any]],
+        created_at: datetime,
+    ) -> dict[str, Any] | None:
+        candidates = [
+            session
+            for session in sessions
+            if session["started_at"] - SESSION_GAP <= created_at <= session["updated_at"] + SESSION_GAP
+        ]
+        if not candidates:
+            return None
+        return min(
+            candidates,
+            key=lambda session: min(
+                abs(session["started_at"] - created_at),
+                abs(session["updated_at"] - created_at),
+            ),
+        )
+
     @staticmethod
     def _finalize_session(session: dict[str, Any]) -> dict[str, Any]:
+        turns = sorted(
+            session.get("turns", []),
+            key=lambda turn: (
+                turn.timestamp,
+                0 if turn.role == "user" else 1,
+            ),
+        )
         emotions = [emotion for emotion in session.get("emotions", []) if emotion]
+        preview = turns[-1].text if turns else session.get("preview", "")
         dominant_emotion = Counter(emotions).most_common(1)[0][0] if emotions else None
         return {
             "id": session["id"],
             "started_at": session["started_at"],
             "updated_at": session["updated_at"],
-            "turns": session["turns"],
-            "preview": session["preview"],
+            "turns": turns,
+            "preview": preview,
             "dominant_emotion": dominant_emotion,
         }

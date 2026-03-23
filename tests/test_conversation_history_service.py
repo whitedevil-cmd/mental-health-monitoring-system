@@ -135,3 +135,113 @@ async def test_list_sessions_falls_back_to_legacy_emotion_readings_when_no_conve
     assert detail is not None
     assert detail.turns[0].role == "user"
     assert detail.turns[0].emotion == "anger"
+
+
+@pytest.mark.asyncio
+async def test_list_sessions_handles_legacy_timestamps_with_short_fractional_seconds() -> None:
+    service = ConversationHistoryService(
+        conversation_repo=FakeConversationRepository(),
+        emotion_repo=FakeEmotionRepository(
+            [
+                {
+                    "id": 21,
+                    "user_id": "user-1",
+                    "created_at": "2026-03-23T07:27:00.64293",
+                    "emotion_label": "neutral",
+                    "confidence": 0.62,
+                    "transcript": "Hello?",
+                }
+            ]
+        ),
+    )
+
+    sessions = await service.list_sessions("user-1")
+
+    assert len(sessions) == 1
+    assert sessions[0].id == "legacy-reading-21"
+    assert sessions[0].preview == "Hello?"
+
+
+@pytest.mark.asyncio
+async def test_list_sessions_merges_unsaved_user_readings_into_existing_session() -> None:
+    service = ConversationHistoryService(
+        conversation_repo=FakeConversationRepository(
+            [
+                {
+                    "id": 1,
+                    "user_id": "user-1",
+                    "transcript": '{"session_id":"voice-1","text":"I am excited about this project.","confidence":0.9}',
+                    "detected_emotion": "joy",
+                    "ai_response": "That sounds energizing. What part feels most exciting?",
+                    "created_at": "2026-03-23T11:04:40",
+                }
+            ]
+        ),
+        emotion_repo=FakeEmotionRepository(
+            [
+                {
+                    "id": 11,
+                    "user_id": "user-1",
+                    "created_at": "2026-03-23T11:04:05",
+                    "emotion_label": "joy",
+                    "confidence": 0.93,
+                    "transcript": "I am excited about this project.",
+                },
+                {
+                    "id": 12,
+                    "user_id": "user-1",
+                    "created_at": "2026-03-23T11:05:10",
+                    "emotion_label": "neutral",
+                    "confidence": 0.9,
+                    "transcript": "I want to make it more optimal.",
+                },
+            ]
+        ),
+    )
+
+    sessions = await service.list_sessions("user-1")
+    detail = await service.get_session("user-1", "voice-1")
+
+    assert len(sessions) == 1
+    assert sessions[0].turn_count == 3
+    assert detail is not None
+    assert [turn.role for turn in detail.turns] == ["user", "assistant", "user"]
+    assert detail.turns[0].text == "I am excited about this project."
+    assert detail.turns[0].confidence == 0.9
+    assert detail.turns[2].text == "I want to make it more optimal."
+
+
+@pytest.mark.asyncio
+async def test_list_sessions_does_not_duplicate_matching_user_turns_when_reading_exists() -> None:
+    service = ConversationHistoryService(
+        conversation_repo=FakeConversationRepository(
+            [
+                {
+                    "id": 1,
+                    "user_id": "user-1",
+                    "transcript": '{"session_id":"voice-1","text":"Hello there.","confidence":0.6}',
+                    "detected_emotion": "neutral",
+                    "ai_response": "Hi, I am here.",
+                    "created_at": "2026-03-23T07:00:20",
+                }
+            ]
+        ),
+        emotion_repo=FakeEmotionRepository(
+            [
+                {
+                    "id": 21,
+                    "user_id": "user-1",
+                    "created_at": "2026-03-23T07:00:00",
+                    "emotion_label": "neutral",
+                    "confidence": 0.61,
+                    "transcript": "Hello there.",
+                }
+            ]
+        ),
+    )
+
+    detail = await service.get_session("user-1", "voice-1")
+
+    assert detail is not None
+    assert [turn.role for turn in detail.turns] == ["user", "assistant"]
+    assert detail.turns[0].text == "Hello there."

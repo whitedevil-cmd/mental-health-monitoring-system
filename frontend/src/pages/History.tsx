@@ -203,14 +203,12 @@ const History = () => {
           ) : null}
         </motion.div>
 
-        {error ? (
-          <motion.div variants={item} className="glass-card rounded-2xl p-6 border border-destructive/20 text-destructive">
-            {error}
-          </motion.div>
-        ) : null}
-
         {sessionId ? (
-          isLoadingDetail ? (
+          error ? (
+            <motion.div variants={item} className="glass-card rounded-2xl border border-destructive/20 p-6 text-destructive">
+              {error}
+            </motion.div>
+          ) : isLoadingDetail ? (
             renderLoadingState
           ) : activeSession ? (
             <motion.div variants={item} className="glass-card rounded-3xl p-4 md:p-6">
@@ -273,6 +271,10 @@ const History = () => {
           )
         ) : isLoadingList ? (
           renderLoadingState
+        ) : error ? (
+          <motion.div variants={item} className="glass-card rounded-2xl border border-destructive/20 p-6 text-destructive">
+            {error}
+          </motion.div>
         ) : sessions.length === 0 ? (
           renderEmptyState
         ) : (
