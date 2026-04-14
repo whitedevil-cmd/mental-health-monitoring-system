@@ -7,12 +7,36 @@ const RATE_LIMIT_PATTERNS = [
   'over_email_send_rate_limit',
 ];
 
+const NETWORK_ERROR_PATTERNS = [
+  'failed to fetch',
+  'networkerror',
+  'network request failed',
+  'load failed',
+];
+
 export const isRateLimitError = (message: string): boolean => {
   const normalized = message.trim().toLowerCase();
   return RATE_LIMIT_PATTERNS.some((pattern) => normalized.includes(pattern));
 };
 
+export const isNetworkAuthError = (message: string): boolean => {
+  const normalized = message.trim().toLowerCase();
+  return NETWORK_ERROR_PATTERNS.some((pattern) => normalized.includes(pattern));
+};
+
 export const getFriendlyAuthError = (message: string, flow: 'signup' | 'forgot' | 'login'): string => {
+  if (isNetworkAuthError(message)) {
+    if (flow === 'signup') {
+      return 'Could not reach the sign-up service. Check your connection, disable blocking extensions for this site, and try again.';
+    }
+
+    if (flow === 'forgot') {
+      return 'Could not reach the recovery email service. Check your connection and try again.';
+    }
+
+    return 'Could not reach the sign-in service. Check your connection and try again.';
+  }
+
   if (isRateLimitError(message)) {
     if (flow === 'signup') {
       return 'Too many signup emails were requested recently. Wait a minute, then try again. If the account already exists, sign in instead.';
