@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import BackButton from '@/components/navigation/BackButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   getCooldownKey,
@@ -17,12 +18,13 @@ import {
 const SIGNUP_EMAIL_COOLDOWN_SECONDS = 60;
 
 const Signup = () => {
-  const { signUp, user } = useAuth();
+  const { signUp, verifyOtp, resendSignupOtp, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [action, setAction] = useState<'signup' | 'verify' | 'resend' | null>(null);
   const [cooldownExpiry, setCooldownExpiry] = useState(0);
 
   const cooldownSeconds = useMemo(
@@ -65,7 +67,7 @@ const Signup = () => {
       return;
     }
 
-    setLoading(true);
+    setAction('signup');
     setError('');
     const { error } = await signUp(email, password);
 
@@ -84,7 +86,49 @@ const Signup = () => {
       );
     }
 
-    setLoading(false);
+    setAction(null);
+  };
+
+  const handleVerifyOtp = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (otp.trim().length !== 6) {
+      setError('Enter the 6-digit OTP from your email.');
+      return;
+    }
+
+    setAction('verify');
+    setError('');
+    const { error } = await verifyOtp(email, otp);
+    if (error) {
+      setError(getFriendlyAuthError(error.message, 'signup'));
+    }
+    setAction(null);
+  };
+
+  const handleResendOtp = async () => {
+    if (cooldownSeconds > 0) {
+      setError(`Please wait ${cooldownSeconds}s before requesting another OTP.`);
+      return;
+    }
+
+    setAction('resend');
+    setError('');
+    const { error } = await resendSignupOtp(email);
+    if (error) {
+      const friendly = getFriendlyAuthError(error.message, 'signup');
+      setError(friendly);
+      if (friendly !== error.message || friendly.toLowerCase().includes('wait a minute')) {
+        setCooldownExpiry(
+          writeCooldownExpiry(getCooldownKey('signup', email), SIGNUP_EMAIL_COOLDOWN_SECONDS),
+        );
+      }
+    } else {
+      setCooldownExpiry(
+        writeCooldownExpiry(getCooldownKey('signup', email), SIGNUP_EMAIL_COOLDOWN_SECONDS),
+      );
+    }
+    setAction(null);
   };
 
   return (
@@ -101,15 +145,50 @@ const Signup = () => {
           <p className="mt-2 text-muted-foreground">Create your account to start feeling heard</p>
         </div>
         {success ? (
-          <div className="glass-card rounded-3xl p-8 text-center space-y-3">
+          <form onSubmit={handleVerifyOtp} className="glass-card rounded-3xl p-8 text-center space-y-5">
             <div className="text-4xl">Spark</div>
-            <h2 className="text-xl font-semibold text-foreground">Check your email</h2>
-            <p className="text-muted-foreground">We&apos;ve sent you a confirmation link.</p>
-            <p className="text-xs text-muted-foreground">
-              If multiple people are signing up at once, wait about a minute before requesting
-              another email.
+            <h2 className="text-xl font-semibold text-foreground">Enter your OTP</h2>
+            <p className="text-muted-foreground">
+              We sent a 6-digit code to <span className="font-medium text-foreground">{email}</span>.
             </p>
-          </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex justify-center">
+              <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                <InputOTPGroup>
+                  {Array.from({ length: 6 }, (_, index) => (
+                    <InputOTPSlot key={index} index={index} className="h-12 w-12 text-base" />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <Button
+              type="submit"
+              variant="hero"
+              size="lg"
+              className="w-full"
+              disabled={action !== null || otp.trim().length !== 6}
+            >
+              {action === 'verify' ? 'Verifying...' : 'Verify OTP'}
+            </Button>
+            <Button
+              type="button"
+              variant="soft"
+              size="lg"
+              className="w-full"
+              disabled={action !== null || cooldownSeconds > 0}
+              onClick={handleResendOtp}
+            >
+              {action === 'resend'
+                ? 'Sending...'
+                : cooldownSeconds > 0
+                  ? `Resend in ${cooldownSeconds}s`
+                  : 'Resend OTP'}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Use the latest OTP from your inbox. If multiple people are signing up at once, wait
+              about a minute before requesting another email.
+            </p>
+          </form>
         ) : (
           <form onSubmit={handleSubmit} className="glass-card rounded-3xl p-8 space-y-5">
             {error && <p className="text-sm text-destructive text-center">{error}</p>}
@@ -136,8 +215,8 @@ const Signup = () => {
                 className="rounded-xl h-12"
               />
             </div>
-            <Button type="submit" variant="hero" size="lg" className="w-full" disabled={loading}>
-              {loading ? 'Creating account...' : cooldownSeconds > 0 ? `Wait ${cooldownSeconds}s` : 'Get started'}
+            <Button type="submit" variant="hero" size="lg" className="w-full" disabled={action !== null}>
+              {action === 'signup' ? 'Creating account...' : cooldownSeconds > 0 ? `Wait ${cooldownSeconds}s` : 'Get started'}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{' '}
