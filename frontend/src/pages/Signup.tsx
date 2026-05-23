@@ -152,10 +152,19 @@ const Signup = () => {
             </p>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex justify-center">
-              <InputOTP maxLength={8} value={otp} onChange={setOtp}>
-                <InputOTPGroup className="flex-wrap justify-center gap-2">
+              <InputOTP
+                maxLength={8}
+                value={otp}
+                onChange={setOtp}
+                containerClassName="justify-center gap-1 sm:gap-2"
+              >
+                <InputOTPGroup className="flex-nowrap justify-center gap-1 sm:gap-2">
                   {Array.from({ length: 8 }, (_, index) => (
-                    <InputOTPSlot key={index} index={index} className="h-12 w-12 text-base" />
+                    <InputOTPSlot
+                      key={index}
+                      index={index}
+                      className="h-11 w-9 text-base sm:h-12 sm:w-10"
+                    />
                   ))}
                 </InputOTPGroup>
               </InputOTP>
