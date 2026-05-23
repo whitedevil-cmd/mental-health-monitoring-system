@@ -137,15 +137,18 @@ const Signup = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-md space-y-8"
+        className="w-full max-w-md space-y-6 sm:space-y-8"
       >
         <BackButton fallbackTo="/" className="px-0" />
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-foreground">Begin your journey</h1>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Begin your journey</h1>
           <p className="mt-2 text-muted-foreground">Create your account to start feeling heard</p>
         </div>
         {success ? (
-          <form onSubmit={handleVerifyOtp} className="glass-card rounded-3xl p-8 text-center space-y-5">
+          <form
+            onSubmit={handleVerifyOtp}
+            className="glass-card space-y-5 rounded-3xl p-5 text-center sm:p-8"
+          >
             <h2 className="text-xl font-semibold text-foreground">Enter your OTP</h2>
             <p className="text-muted-foreground">
               We sent an 8-digit code to <span className="font-medium text-foreground">{email}</span>.
@@ -156,14 +159,14 @@ const Signup = () => {
                 maxLength={8}
                 value={otp}
                 onChange={setOtp}
-                containerClassName="justify-center gap-1 sm:gap-2"
+                containerClassName="justify-center gap-1"
               >
-                <InputOTPGroup className="flex-nowrap justify-center gap-1 sm:gap-2">
+                <InputOTPGroup className="flex-nowrap justify-center gap-1">
                   {Array.from({ length: 8 }, (_, index) => (
                     <InputOTPSlot
                       key={index}
                       index={index}
-                      className="h-11 w-9 text-base sm:h-12 sm:w-10"
+                      className="h-10 w-7 text-sm sm:h-12 sm:w-10 sm:text-base"
                     />
                   ))}
                 </InputOTPGroup>
@@ -198,7 +201,7 @@ const Signup = () => {
             </p>
           </form>
         ) : (
-          <form onSubmit={handleSubmit} className="glass-card rounded-3xl p-8 space-y-5">
+          <form onSubmit={handleSubmit} className="glass-card space-y-5 rounded-3xl p-6 sm:p-8">
             {error && <p className="text-sm text-destructive text-center">{error}</p>}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Email</label>

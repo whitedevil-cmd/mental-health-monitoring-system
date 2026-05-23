@@ -56,7 +56,7 @@ const ChangePassword = () => {
   return (
     <AppLayout>
       <div className="mx-auto max-w-3xl space-y-6">
-        <div className="glass-card rounded-3xl p-6 md:p-8">
+        <div className="glass-card rounded-3xl p-5 sm:p-6 md:p-8">
           <h1 className="text-2xl font-bold text-foreground">Change Password</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Update your password while signed in. If you lose access later, you can still use the
@@ -64,7 +64,7 @@ const ChangePassword = () => {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="glass-card space-y-5 rounded-3xl p-6 md:p-8">
+        <form onSubmit={handleSubmit} className="glass-card space-y-5 rounded-3xl p-5 sm:p-6 md:p-8">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">New password</label>
             <Input

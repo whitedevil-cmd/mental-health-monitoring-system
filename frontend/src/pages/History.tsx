@@ -188,7 +188,7 @@ const History = () => {
   return (
     <AppLayout>
       <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-        <motion.div variants={item} className="flex items-start justify-between gap-4">
+        <motion.div variants={item} className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Conversation History</h1>
             <p className="mt-1 text-muted-foreground">
@@ -196,7 +196,7 @@ const History = () => {
             </p>
           </div>
           {sessionId ? (
-            <Button variant="outline" onClick={() => navigate('/history')} className="shrink-0">
+            <Button variant="outline" onClick={() => navigate('/history')} className="w-full shrink-0 sm:w-auto">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Logs
             </Button>

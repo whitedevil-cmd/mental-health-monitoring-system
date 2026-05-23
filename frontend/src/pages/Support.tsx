@@ -51,30 +51,30 @@ const Support = () => {
         <div className="absolute bottom-0 left-1/2 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-insight/5 blur-3xl" />
       </div>
 
-      <header className="relative z-10 px-6 py-6 md:px-12">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+      <header className="relative z-10 px-4 py-5 sm:px-6 md:px-12">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <BackButton fallbackTo="/" />
             <Link to="/" className="inline-flex items-center">
               <img
                 src="/emoiva-logo.png"
                 alt="Emoiva"
-                className="h-12 w-auto max-w-[220px] object-contain md:h-14"
+                className="h-11 w-auto max-w-[180px] object-contain sm:h-12 sm:max-w-[220px] md:h-14"
               />
             </Link>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" asChild>
+          <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+            <Button variant="ghost" asChild className="w-full sm:w-auto">
               <Link to="/privacy">Privacy & Terms</Link>
             </Button>
-            <Button variant="hero" asChild>
+            <Button variant="hero" asChild className="w-full sm:w-auto">
               <a href="mailto:arpitshivhare525@gmail.com">Contact</a>
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="relative z-10 px-6 pb-20 md:px-12">
+      <main className="relative z-10 px-4 pb-20 sm:px-6 md:px-12">
         <div className="mx-auto max-w-6xl space-y-8">
           <motion.section
             initial={{ opacity: 0, y: 20 }}
@@ -88,10 +88,10 @@ const Support = () => {
                 Help & Contact
               </div>
               <div className="space-y-3">
-                <h1 className="text-4xl font-extrabold tracking-tight text-foreground md:text-6xl">
+                <h1 className="text-[clamp(2.25rem,10vw,4rem)] font-extrabold tracking-tight text-foreground md:text-6xl">
                   Support that matches the product
                 </h1>
-                <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
+                <p className="max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
                   Emoiva is built to feel clear, supportive, and trustworthy. If you need help,
                   want to report an issue, or want to discuss the product, use the contact options below.
                 </p>
@@ -112,7 +112,7 @@ const Support = () => {
                         <ArrowUpRight className="ml-auto h-4 w-4 text-muted-foreground" />
                       ) : null}
                     </div>
-                    <p className="mt-3 text-sm text-foreground">{channel.value}</p>
+                    <p className="mt-3 break-words text-sm text-foreground">{channel.value}</p>
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{channel.hint}</p>
                   </a>
                 ))}

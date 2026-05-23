@@ -83,7 +83,7 @@ const Dashboard = () => {
             <h1 className="text-3xl font-bold text-foreground">Your dashboard</h1>
             <p className="mt-1 text-muted-foreground">Live summaries from your actual Emoiva sessions</p>
           </div>
-          <Button variant="hero" size="lg" asChild>
+          <Button variant="hero" size="lg" asChild className="w-full sm:w-auto">
             <Link
               to="/voice"
               className="gap-2"

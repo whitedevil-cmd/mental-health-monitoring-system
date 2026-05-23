@@ -5,6 +5,12 @@
 @tailwind utilities;
 
 @layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
   :root {
     --background: 210 40% 98%;
     --foreground: 215 25% 27%;
@@ -86,11 +92,46 @@
   * {
     @apply border-border;
   }
+
+  html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground font-body antialiased;
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
+    overflow-x: clip;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-display;
+  }
+
+  img,
+  video,
+  canvas,
+  iframe {
+    display: block;
+    max-width: 100%;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    max-width: 100%;
   }
 }
 
@@ -114,4 +155,34 @@
   0% { transform: scale(0.9); opacity: 0.8; }
   50% { transform: scale(1.15); opacity: 0; }
   100% { transform: scale(0.9); opacity: 0; }
+}
+
+@media (max-width: 374px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 375px) and (max-width: 424px) {
+  html {
+    font-size: 15.5px;
+  }
+}
+
+@media (min-width: 425px) and (max-width: 767px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: 16px;
+  }
 }

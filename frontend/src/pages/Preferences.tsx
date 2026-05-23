@@ -88,27 +88,29 @@ const Preferences = () => {
   return (
     <AppLayout>
       <div className="mx-auto max-w-3xl space-y-6">
-        <div className="glass-card rounded-3xl p-6 md:p-8">
+        <div className="glass-card rounded-3xl p-5 sm:p-6 md:p-8">
           <h1 className="text-2xl font-bold text-foreground">Preferences</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Control how Emoiva feels during sessions and across the app.
           </p>
         </div>
 
-        <div className="glass-card space-y-4 rounded-3xl p-6 md:p-8">
+        <div className="glass-card space-y-4 rounded-3xl p-5 sm:p-6 md:p-8">
           {items.map((item) => (
             <div
               key={item.key}
-              className="flex items-start justify-between gap-4 rounded-2xl border border-border/70 bg-background/50 p-4"
+              className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background/50 p-4 sm:flex-row sm:items-start sm:justify-between"
             >
               <div className="space-y-1">
                 <p className="font-medium text-foreground">{item.title}</p>
                 <p className="text-sm leading-relaxed text-muted-foreground">{item.description}</p>
               </div>
-              <Switch
-                checked={preferences[item.key]}
-                onCheckedChange={(checked) => updatePreference(item.key, checked)}
-              />
+              <div className="flex justify-start sm:justify-end">
+                <Switch
+                  checked={preferences[item.key]}
+                  onCheckedChange={(checked) => updatePreference(item.key, checked)}
+                />
+              </div>
             </div>
           ))}
 

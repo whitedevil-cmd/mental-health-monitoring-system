@@ -137,7 +137,7 @@ const Founder = () => {
         <div className="absolute bottom-0 left-1/2 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-insight/5 blur-3xl" />
       </div>
 
-      <header className="relative z-10 px-6 py-6 md:px-12">
+      <header className="relative z-10 px-4 py-5 sm:px-6 md:px-12">
         <div className="mx-auto max-w-6xl">
           <div className="space-y-4 md:hidden">
             <div className="flex items-center justify-between gap-3">
@@ -183,7 +183,7 @@ const Founder = () => {
         </div>
       </header>
 
-      <main className="relative z-10 px-6 pb-20 md:px-12">
+      <main className="relative z-10 px-4 pb-20 sm:px-6 md:px-12">
         <motion.div
           initial="hidden"
           animate="show"
@@ -201,7 +201,7 @@ const Founder = () => {
                   Portfolio
                 </div>
                 <div className="space-y-4">
-                  <h1 className="text-[2.85rem] font-extrabold leading-[0.92] tracking-tight text-foreground">
+                  <h1 className="text-[clamp(2.2rem,12vw,2.85rem)] font-extrabold leading-[0.92] tracking-tight text-foreground">
                     Arpit Shivhare
                   </h1>
                   <p className="text-lg leading-relaxed text-muted-foreground">
@@ -300,26 +300,26 @@ const Founder = () => {
                 </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <a
                   href="tel:+916260962016"
-                  className="flex items-center gap-3 rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground transition-colors hover:bg-secondary/70"
+                  className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground transition-colors hover:bg-secondary/70"
                 >
                   <Phone className="h-4 w-4 text-primary" />
                   <span>+91-6260962016</span>
                 </a>
                 <a
                   href="mailto:arpitshivhare525@gmail.com"
-                  className="flex items-center gap-3 rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground transition-colors hover:bg-secondary/70"
+                  className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground transition-colors hover:bg-secondary/70"
                 >
                   <Mail className="h-4 w-4 text-primary" />
-                  <span className="truncate">arpitshivhare525@gmail.com</span>
+                  <span className="min-w-0 break-all">arpitshivhare525@gmail.com</span>
                 </a>
                 <a
                   href="https://github.com/whitedevil-cmd"
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-3 rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground transition-colors hover:bg-secondary/70"
+                  className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground transition-colors hover:bg-secondary/70"
                 >
                   <Briefcase className="h-4 w-4 text-primary" />
                   <span>GitHub</span>
@@ -329,21 +329,21 @@ const Founder = () => {
                   href="https://linkedin.com/in/arpitshivhare/"
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-3 rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground transition-colors hover:bg-secondary/70"
+                  className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground transition-colors hover:bg-secondary/70"
                 >
                   <Linkedin className="h-4 w-4 text-primary" />
                   <span>LinkedIn</span>
-                  <span className="ml-auto text-xs text-muted-foreground">linkedin.com/in/arpitshivhare</span>
+                  <span className="w-full break-all text-xs text-muted-foreground lg:ml-auto lg:w-auto lg:text-right">linkedin.com/in/arpitshivhare</span>
                 </a>
                 <a
                   href="https://instagram.com/iarpitshivhare"
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-3 rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground transition-colors hover:bg-secondary/70"
+                  className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground transition-colors hover:bg-secondary/70"
                 >
                   <Instagram className="h-4 w-4 text-primary" />
                   <span>Instagram</span>
-                  <span className="ml-auto text-xs text-muted-foreground">@iarpitshivhare</span>
+                  <span className="w-full text-xs text-muted-foreground lg:ml-auto lg:w-auto lg:text-right">@iarpitshivhare</span>
                 </a>
               </div>
             </div>

@@ -27,10 +27,10 @@ const desktopNavItems = [
 ];
 
 const mobileNavItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/voice', label: 'Voice Session', icon: Mic },
-  { to: '/insights', label: 'Insights', icon: BarChart3 },
-  { to: '/profile', label: 'Profile', icon: User },
+  { to: '/dashboard', label: 'Dashboard', shortLabel: 'Dashboard', icon: LayoutDashboard },
+  { to: '/voice', label: 'Voice Session', shortLabel: 'Voice', icon: Mic },
+  { to: '/insights', label: 'Insights', shortLabel: 'Insights', icon: BarChart3 },
+  { to: '/profile', label: 'Profile', shortLabel: 'Profile', icon: User },
   { to: '/portfolio', label: "Founder's Portfolio", shortLabel: 'Portfolio', icon: Briefcase },
 ];
 
@@ -51,7 +51,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen w-full max-w-full overflow-x-clip bg-background">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:w-64 flex-col border-r border-border bg-card p-6">
         <div className="mb-10">
@@ -95,9 +95,9 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:hidden">
-          <div className="min-w-0">
+      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <header className="sticky top-0 z-40 flex items-start justify-between gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:hidden">
+          <div className="min-w-0 max-w-[calc(100%-3.5rem)]">
             <img
               src="/emoiva-logo.png"
               alt="Emoiva"
@@ -111,7 +111,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-navigation-menu"
             onClick={() => setMobileMenuOpen((current) => !current)}
-            className="inline-flex items-center justify-center rounded-xl border border-border bg-card p-2 text-foreground transition-colors hover:bg-secondary"
+            className="inline-flex shrink-0 items-center justify-center rounded-xl border border-border bg-card p-2 text-foreground transition-colors hover:bg-secondary"
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -127,7 +127,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             />
             <div
               id="mobile-navigation-menu"
-              className="absolute right-4 top-16 w-72 rounded-2xl border border-border bg-card p-4 shadow-xl"
+              className="absolute left-4 right-4 top-16 w-auto max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card p-4 shadow-xl"
             >
               <nav className="space-y-2">
                 {mobileNavItems.map((item) => (
@@ -173,7 +173,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
-          className="p-4 md:p-8 max-w-6xl mx-auto pb-24 md:pb-8"
+          className="mx-auto max-w-6xl px-4 pb-24 pt-4 md:px-8 md:pb-8 md:pt-8"
         >
           <div className="mb-5 flex items-center md:hidden">
             <BackButton
@@ -186,7 +186,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden bg-card border-t border-border flex justify-around py-2 z-50">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-5 border-t border-border bg-card py-2 md:hidden">
         {mobileNavItems.map(item => (
           <NavLink
             key={item.to}
@@ -195,13 +195,13 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             onFocus={() => preloadRoute(item.to)}
             className={({ isActive }) =>
               cn(
-                'flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-xs transition-colors',
+                'flex min-w-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-[11px] transition-colors sm:px-2',
                 isActive ? 'text-primary' : 'text-muted-foreground'
               )
             }
           >
             <item.icon className="h-5 w-5" />
-            <span>{item.shortLabel ?? item.label}</span>
+            <span className="max-w-full truncate">{item.shortLabel ?? item.label}</span>
           </NavLink>
         ))}
       </nav>

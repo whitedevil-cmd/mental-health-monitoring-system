@@ -73,8 +73,8 @@ const Insights = () => {
     <AppLayout>
       <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
         <motion.div variants={item}>
-          <div className="flex items-center gap-3">
-            <Brain className="h-7 w-7 text-primary" />
+          <div className="flex items-start gap-3">
+            <Brain className="h-7 w-7 shrink-0 text-primary" />
             <div>
               <h1 className="text-3xl font-bold text-foreground">Emotion Insights</h1>
               <p className="mt-1 text-muted-foreground">Patterns derived from your saved Emoiva sessions</p>

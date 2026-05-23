@@ -59,14 +59,14 @@ const EditProfile = () => {
   return (
     <AppLayout>
       <div className="mx-auto max-w-3xl space-y-6">
-        <div className="glass-card rounded-3xl p-6 md:p-8">
+        <div className="glass-card rounded-3xl p-5 sm:p-6 md:p-8">
           <h1 className="text-2xl font-bold text-foreground">Edit Profile</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Update the details tied to your Emoiva account.
           </p>
         </div>
 
-        <form onSubmit={handleSave} className="glass-card space-y-5 rounded-3xl p-6 md:p-8">
+        <form onSubmit={handleSave} className="glass-card space-y-5 rounded-3xl p-5 sm:p-6 md:p-8">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Email</label>
             <Input value={user?.email ?? ''} readOnly className="h-12 rounded-xl opacity-80" />

@@ -80,8 +80,8 @@ const Profile = () => {
         animate="show"
         className="mx-auto max-w-3xl space-y-6"
       >
-        <motion.section variants={item} className="glass-card rounded-3xl p-6 md:p-8">
-          <div className="flex items-center gap-4">
+        <motion.section variants={item} className="glass-card rounded-3xl p-5 sm:p-6 md:p-8">
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-xl font-semibold text-primary">
               {initialsFromLabel(displayName)}
             </div>
@@ -121,7 +121,7 @@ const Profile = () => {
                   <Link
                     key={entry.label}
                     to={entry.to}
-                    className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 transition-colors last:border-b-0 hover:bg-secondary/50"
+                    className="flex items-start justify-between gap-3 border-b border-border px-4 py-4 transition-colors last:border-b-0 hover:bg-secondary/50 sm:items-center"
                   >
                     {content}
                   </Link>
@@ -144,7 +144,7 @@ const Profile = () => {
               <Link
                 key={entry.label}
                 to={entry.to}
-                className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-secondary/50"
+                className="flex items-start justify-between gap-3 border-b border-border px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-secondary/50 sm:items-center"
               >
                 <div className="flex items-center gap-4">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary text-foreground">
@@ -155,7 +155,7 @@ const Profile = () => {
                     <p className="text-sm text-muted-foreground">{entry.subtitle}</p>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 shrink-0 self-center text-muted-foreground" />
               </Link>
             ))}
           </div>
@@ -172,7 +172,7 @@ const Profile = () => {
               <Link
                 key={entry.label}
                 to={entry.to}
-                className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-secondary/50"
+                className="flex items-start justify-between gap-3 border-b border-border px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-secondary/50 sm:items-center"
               >
                 <div className="flex items-center gap-4">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary text-foreground">
@@ -183,7 +183,7 @@ const Profile = () => {
                     <p className="text-sm text-muted-foreground">{entry.subtitle}</p>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 shrink-0 self-center text-muted-foreground" />
               </Link>
             ))}
           </div>

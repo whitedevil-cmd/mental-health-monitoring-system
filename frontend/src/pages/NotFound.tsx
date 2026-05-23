@@ -10,8 +10,8 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
-      <div className="text-center">
+    <div className="flex min-h-screen items-center justify-center bg-muted px-4">
+      <div className="max-w-md text-center">
         <div className="mb-4 flex justify-center">
           <BackButton fallbackTo="/" />
         </div>

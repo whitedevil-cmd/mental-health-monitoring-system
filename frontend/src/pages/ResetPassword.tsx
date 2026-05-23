@@ -60,14 +60,14 @@ const ResetPassword = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-md space-y-8"
+        className="w-full max-w-md space-y-6 sm:space-y-8"
       >
         <BackButton fallbackTo="/login" className="px-0" />
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-foreground">New password</h1>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">New password</h1>
           <p className="mt-2 text-muted-foreground">Choose a new password for your account</p>
         </div>
-        <form onSubmit={handleSubmit} className="glass-card rounded-3xl p-8 space-y-5">
+        <form onSubmit={handleSubmit} className="glass-card space-y-5 rounded-3xl p-6 sm:p-8">
           {error && <p className="text-sm text-destructive text-center">{error}</p>}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">New password</label>

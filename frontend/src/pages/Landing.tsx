@@ -23,21 +23,23 @@ const Landing = () => {
         <div className="absolute top-1/2 left-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-insight/5 blur-3xl animate-float" />
       </div>
 
-      <header className="relative z-10 flex items-center justify-between px-6 py-6 md:px-12">
-        <img
-          src="/emoiva-logo.png"
-          alt="Emoiva"
-          className="h-12 w-auto max-w-[220px] object-contain md:h-14"
-        />
-        <div className="flex gap-3">
-          <Button variant="ghost" asChild><Link to="/support">Help</Link></Button>
-          <Button variant="ghost" asChild><Link to="/portfolio">Portfolio</Link></Button>
-          <Button variant="ghost" asChild><Link to="/login">Sign in</Link></Button>
-          <Button variant="hero" asChild><Link to="/signup">Get started</Link></Button>
+      <header className="relative z-10 px-4 py-5 sm:px-6 md:px-12">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <img
+            src="/emoiva-logo.png"
+            alt="Emoiva"
+            className="h-11 w-auto max-w-[180px] object-contain sm:h-12 sm:max-w-[220px] md:h-14"
+          />
+          <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+            <Button variant="ghost" asChild className="w-full sm:w-auto"><Link to="/support">Help</Link></Button>
+            <Button variant="ghost" asChild className="w-full sm:w-auto"><Link to="/portfolio">Portfolio</Link></Button>
+            <Button variant="ghost" asChild className="w-full sm:w-auto"><Link to="/login">Sign in</Link></Button>
+            <Button variant="hero" asChild className="w-full sm:w-auto"><Link to="/signup">Get started</Link></Button>
+          </div>
         </div>
       </header>
 
-      <section className="relative z-10 flex flex-col items-center justify-center px-6 pt-16 pb-24 text-center md:pt-28 md:pb-32">
+      <section className="relative z-10 flex flex-col items-center justify-center px-4 pb-20 pt-12 text-center sm:px-6 sm:pb-24 sm:pt-16 md:px-12 md:pb-32 md:pt-28">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -47,10 +49,10 @@ const Landing = () => {
           <span className="mb-4 inline-block rounded-full bg-secondary px-4 py-1.5 text-sm font-medium text-primary">
             Emotion-aware voice support
           </span>
-          <h2 className="text-4xl font-extrabold leading-tight text-foreground md:text-6xl">
+          <h2 className="text-[clamp(2.25rem,11vw,4rem)] font-extrabold leading-[1.05] text-foreground md:text-6xl">
             A safe space to <span className="text-primary">be heard</span>
           </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl">
             Talk openly. Emoiva listens to your voice, tracks emotional signals in realtime, and
             answers with grounded, personalized support.
           </p>
@@ -65,7 +67,7 @@ const Landing = () => {
         </motion.div>
       </section>
 
-      <section className="relative z-10 px-6 pb-24 md:px-12">
+      <section className="relative z-10 px-4 pb-20 sm:px-6 md:px-12 md:pb-24">
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((feature, index) => (
             <motion.div
@@ -85,12 +87,12 @@ const Landing = () => {
         </div>
       </section>
 
-      <section className="relative z-10 px-6 pb-20">
+      <section className="relative z-10 px-4 pb-20 sm:px-6">
         <motion.div
           initial={{ opacity: 0, scale: 0.97 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          className="mx-auto max-w-3xl rounded-3xl p-10 text-center glass-card md:p-14"
+          className="mx-auto max-w-3xl rounded-3xl p-6 text-center glass-card sm:p-8 md:p-14"
         >
           <h3 className="mb-4 text-2xl font-bold text-foreground md:text-3xl">
             You deserve support that feels personal
@@ -105,7 +107,7 @@ const Landing = () => {
         </motion.div>
       </section>
 
-      <footer className="relative z-10 border-t border-border/60 px-6 py-8 md:px-12">
+      <footer className="relative z-10 border-t border-border/60 px-4 py-8 sm:px-6 md:px-12">
         <div className="mx-auto flex max-w-6xl flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-medium text-foreground">Emoiva</p>
