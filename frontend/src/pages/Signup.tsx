@@ -92,8 +92,8 @@ const Signup = () => {
   const handleVerifyOtp = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (otp.trim().length !== 6) {
-      setError('Enter the 6-digit OTP from your email.');
+    if (otp.trim().length !== 8) {
+      setError('Enter the 8-digit OTP from your email.');
       return;
     }
 
@@ -146,16 +146,15 @@ const Signup = () => {
         </div>
         {success ? (
           <form onSubmit={handleVerifyOtp} className="glass-card rounded-3xl p-8 text-center space-y-5">
-            <div className="text-4xl">Spark</div>
             <h2 className="text-xl font-semibold text-foreground">Enter your OTP</h2>
             <p className="text-muted-foreground">
-              We sent a 6-digit code to <span className="font-medium text-foreground">{email}</span>.
+              We sent an 8-digit code to <span className="font-medium text-foreground">{email}</span>.
             </p>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex justify-center">
-              <InputOTP maxLength={6} value={otp} onChange={setOtp}>
-                <InputOTPGroup>
-                  {Array.from({ length: 6 }, (_, index) => (
+              <InputOTP maxLength={8} value={otp} onChange={setOtp}>
+                <InputOTPGroup className="flex-wrap justify-center gap-2">
+                  {Array.from({ length: 8 }, (_, index) => (
                     <InputOTPSlot key={index} index={index} className="h-12 w-12 text-base" />
                   ))}
                 </InputOTPGroup>
@@ -166,7 +165,7 @@ const Signup = () => {
               variant="hero"
               size="lg"
               className="w-full"
-              disabled={action !== null || otp.trim().length !== 6}
+              disabled={action !== null || otp.trim().length !== 8}
             >
               {action === 'verify' ? 'Verifying...' : 'Verify OTP'}
             </Button>
