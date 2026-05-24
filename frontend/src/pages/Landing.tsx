@@ -24,20 +24,20 @@ const Landing = () => {
       </div>
 
       <header className="relative z-10 px-4 py-5 sm:px-6 md:px-12">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <div className="flex items-center justify-between gap-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 sm:gap-4">
+          <Link to="/" className="min-w-0 flex-1 sm:flex-none">
             <img
               src="/emoiva-logo.png"
               alt="Emoiva"
-              className="h-11 w-auto max-w-[180px] object-contain sm:h-12 sm:max-w-[220px] md:h-14"
+              className="h-10 w-auto max-w-[112px] object-contain sm:h-12 sm:max-w-[220px] md:h-14"
             />
-          </div>
+          </Link>
 
-          <div className="flex items-center justify-end gap-3 sm:hidden">
-            <Button variant="ghost" asChild className="h-11 px-4">
+          <div className="flex shrink-0 items-center gap-2 sm:hidden">
+            <Button variant="ghost" asChild className="h-10 rounded-full px-3 text-sm font-semibold text-foreground">
               <Link to="/login">Sign in</Link>
             </Button>
-            <Button variant="hero" asChild className="h-11 px-5">
+            <Button variant="hero" asChild className="h-10 rounded-full px-4 text-sm shadow-md">
               <Link to="/signup">Get started</Link>
             </Button>
           </div>
