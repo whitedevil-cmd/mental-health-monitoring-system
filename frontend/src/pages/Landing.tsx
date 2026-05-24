@@ -31,21 +31,15 @@ const Landing = () => {
               alt="Emoiva"
               className="h-11 w-auto max-w-[180px] object-contain sm:h-12 sm:max-w-[220px] md:h-14"
             />
-            <Button variant="hero" asChild className="h-11 shrink-0 px-5 sm:hidden">
-              <Link to="/signup">Get started</Link>
-            </Button>
           </div>
 
-          <div className="flex items-center justify-center gap-5 px-1 text-sm font-medium text-muted-foreground sm:hidden">
-            <Link to="/support" className="transition-colors hover:text-foreground">
-              Help
-            </Link>
-            <Link to="/portfolio" className="transition-colors hover:text-foreground">
-              Portfolio
-            </Link>
-            <Link to="/login" className="transition-colors hover:text-foreground">
-              Sign in
-            </Link>
+          <div className="flex items-center justify-end gap-3 sm:hidden">
+            <Button variant="ghost" asChild className="h-11 px-4">
+              <Link to="/login">Sign in</Link>
+            </Button>
+            <Button variant="hero" asChild className="h-11 px-5">
+              <Link to="/signup">Get started</Link>
+            </Button>
           </div>
 
           <div className="hidden sm:flex sm:w-auto sm:flex-wrap sm:justify-end sm:gap-3">
