@@ -24,17 +24,35 @@ const Landing = () => {
       </div>
 
       <header className="relative z-10 px-4 py-5 sm:px-6 md:px-12">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <img
-            src="/emoiva-logo.png"
-            alt="Emoiva"
-            className="h-11 w-auto max-w-[180px] object-contain sm:h-12 sm:max-w-[220px] md:h-14"
-          />
-          <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
-            <Button variant="ghost" asChild className="w-full sm:w-auto"><Link to="/support">Help</Link></Button>
-            <Button variant="ghost" asChild className="w-full sm:w-auto"><Link to="/portfolio">Portfolio</Link></Button>
-            <Button variant="ghost" asChild className="w-full sm:w-auto"><Link to="/login">Sign in</Link></Button>
-            <Button variant="hero" asChild className="w-full sm:w-auto"><Link to="/signup">Get started</Link></Button>
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="flex items-center justify-between gap-3">
+            <img
+              src="/emoiva-logo.png"
+              alt="Emoiva"
+              className="h-11 w-auto max-w-[180px] object-contain sm:h-12 sm:max-w-[220px] md:h-14"
+            />
+            <Button variant="hero" asChild className="h-11 shrink-0 px-5 sm:hidden">
+              <Link to="/signup">Get started</Link>
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-center gap-5 px-1 text-sm font-medium text-muted-foreground sm:hidden">
+            <Link to="/support" className="transition-colors hover:text-foreground">
+              Help
+            </Link>
+            <Link to="/portfolio" className="transition-colors hover:text-foreground">
+              Portfolio
+            </Link>
+            <Link to="/login" className="transition-colors hover:text-foreground">
+              Sign in
+            </Link>
+          </div>
+
+          <div className="hidden sm:flex sm:w-auto sm:flex-wrap sm:justify-end sm:gap-3">
+            <Button variant="ghost" asChild className="sm:w-auto"><Link to="/support">Help</Link></Button>
+            <Button variant="ghost" asChild className="sm:w-auto"><Link to="/portfolio">Portfolio</Link></Button>
+            <Button variant="ghost" asChild className="sm:w-auto"><Link to="/login">Sign in</Link></Button>
+            <Button variant="hero" asChild className="sm:w-auto"><Link to="/signup">Get started</Link></Button>
           </div>
         </div>
       </header>
